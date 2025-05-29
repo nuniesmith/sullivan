@@ -1,0 +1,930 @@
+# Docker Compose for SULLIVAN - Media & Intensive Services
+# Powerful server with GPU access handling media, downloads, AI, and user applications
+
+# Named volumes for data/cache/databases only
+volumes:
+  # AI Service volumes
+  ollama_data:
+  openwebui_data:
+  
+  # Media Service volumes
+  emby_data:
+  emby_cache:
+  jellyfin_data:
+  jellyfin_cache:
+  plex_data:
+  plex_cache:
+  audiobookshelf_data:
+  calibre_data:
+  calibre_web_data:
+  
+  # Download Management volumes
+  sonarr_data:
+  radarr_data:
+  lidarr_data:
+  readarr_audio_data:
+  readarr_ebooks_data:
+  jackett_data:
+  qbittorrent_data:
+  
+  # Utility volumes
+  filebot_data:
+  homarr_data:
+  duplicati_data:
+  ytdl_data:
+  mealie_data:
+  grocy_data:
+  portainer_data:
+  syncthing_data:
+  nextcloud_data:
+  
+  # Database volumes
+  ytdl_mongodb:
+  nextcloud_mysql:
+  
+  # Monitoring/System volumes
+  watchtower_data:
+  datadog_data:
+
+# Custom networks for service isolation
+networks:
+  frontend:
+    driver: bridge
+  media:
+    driver: bridge
+  download:
+    driver: bridge
+  books:
+    driver: bridge
+  ai:
+    driver: bridge
+  database:
+    driver: bridge
+  monitoring:
+    driver: bridge
+  utilities:
+    driver: bridge
+
+services:
+  # =============================================================================
+  # AI SERVICES
+  # =============================================================================
+
+  # ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    networks:
+      - ai
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute, utility]
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      # CONFIG: Git-managed if you have custom configs
+      - ./config/ollama:/config
+      # DATA: Model data and cache
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: always
+
+  # open webui
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open_webui
+    networks:
+      - ai
+    depends_on:
+      - ollama
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/openwebui:/app/backend/config
+      # DATA: Application data and user content
+      - openwebui_data:/app/backend/data
+    ports:
+      - "3000:8080"
+    restart: always
+
+  # =============================================================================
+  # MEDIA SERVICES
+  # =============================================================================
+
+  # emby
+  emby:
+    image: emby/embyserver
+    container_name: emby
+    networks:
+      - media
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute, utility, video]
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/emby/config:/config/config
+      - ./config/emby/data:/config/data
+      - ./config/emby/plugins:/config/plugins
+      # DATA: Database, metadata, cache
+      - emby_data:/data
+      - emby_cache:/cache
+      # TRANSCODE: Temporary
+      - /tmp:/transcode
+      # MEDIA: Read-only media files
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/movies:ro
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/shows:ro
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/music:ro
+      - ${MEDIA_PATH_MUSIC_VIDEOS:-/mnt/media/music_videos}:/music_videos:ro
+      - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/edu:ro
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+    restart: always
+
+  # jellyfin (for testing)
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    networks:
+      - media
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute, utility, video]
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/jellyfin:/config
+      # DATA: Database, metadata, cache  
+      - jellyfin_data:/data
+      - jellyfin_cache:/cache
+      # TRANSCODE: Temporary
+      - /tmp:/transcode
+      # MEDIA: Read-only media files
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/movies:ro
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/shows:ro
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/music:ro
+      - ${MEDIA_PATH_MUSIC_VIDEOS:-/mnt/media/music_videos}:/music_videos:ro
+      - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/edu:ro
+    ports:
+      - "8097:8096"  # Changed from 8096 to avoid conflict with Emby
+    restart: always
+
+  # plex
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    networks:
+      - media
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute, utility, video]
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/Toronto}
+      - VERSION=docker
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/plex:/config
+      # DATA: Database, metadata, cache
+      - plex_data:/data
+      - plex_cache:/cache
+      # TRANSCODE: Temporary
+      - /tmp:/transcode
+      # MEDIA: Read-only media files
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/movies:ro
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/shows:ro
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/music:ro
+      - ${MEDIA_PATH_MUSIC_VIDEOS:-/mnt/media/music_videos}:/music_videos:ro
+      - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/edu:ro
+    ports:
+      - "32400:32400"
+      - "1900:1900"
+      - "5353:5353"
+      - "32410:32410"
+      - "32412:32412"
+      - "32413:32413"
+      - "32414:32414"
+      - "32469:32469"
+    restart: always
+
+  # audiobookshelf  
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    networks:
+      - books
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - AUDIOBOOKSHELF_UID=${PUID:-1000}
+      - AUDIOBOOKSHELF_GID=${PGID:-100}
+    ports:
+      - "13378:80"
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/audiobookshelf:/config
+      # DATA: Database and metadata
+      - audiobookshelf_data:/metadata
+      # MEDIA: Read-only books
+      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/books:ro
+    restart: always
+
+  # calibre
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    networks:
+      - books
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/calibre:/config
+      # DATA: Database and converted files
+      - calibre_data:/data
+      # MEDIA: Books directory
+      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/books
+    ports:
+      - "8082:8080"
+      - "8083:8081"
+    restart: always
+
+  # calibre web
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    networks:
+      - books
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/calibre-web:/config
+      # DATA: Application data
+      - calibre_web_data:/data
+      # MEDIA: Read-only books
+      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/books:ro
+    ports:
+      - "8084:8083"
+    restart: always
+
+  # =============================================================================
+  # DOWNLOAD MANAGEMENT
+  # =============================================================================
+
+  # qbittorrent
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    networks:
+      - download
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - WEBUI_PORT=8080
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/qbittorrent:/config
+      # DATA: Application data and cache
+      - qbittorrent_data:/data
+      # DOWNLOADS: Active download directories
+      - ${DOWNLOAD_PATH_INCOMPLETE:-/mnt/media/qbittorrent/incomplete}:/incomplete
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+      - ${DOWNLOAD_PATH_TORRENT:-/mnt/media/qbittorrent/torrent}:/torrent
+      - ${DOWNLOAD_PATH_MONITOR:-/mnt/media/monitor}:/monitor
+      # MEDIA: For seeding
+      - ${MEDIA_PATH_SEED:-/mnt/media/seed}:/seed
+      - ${MEDIA_PATH:-/mnt/media}:/media
+      - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/edu
+    ports:
+      - "8080:8080"
+      - "60000:60000"
+    restart: always
+
+  # jackett
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    networks:
+      - download
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - AUTO_UPDATE=true
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/jackett:/config
+      # DATA: Database and cache
+      - jackett_data:/data
+    ports:
+      - "9117:9117"
+    restart: always
+
+  # flaresolverr
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    networks:
+      - download
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - LOG_LEVEL=${FLARESOLVERR_LOG_LEVEL:-info}
+      - LOG_HTML=${FLARESOLVERR_LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${FLARESOLVERR_CAPTCHA_SOLVER:-none}
+    ports:
+      - "${FLARESOLVERR_PORT:-8191}:8191"
+    restart: always
+
+  # sonarr
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    networks:
+      - download
+      - media
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/sonarr:/config
+      # DATA: Database and logs
+      - sonarr_data:/data
+      # DOWNLOADS: For import
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+      # MEDIA: TV shows directory
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/shows
+      - ${MEDIA_PATH:-/mnt/media}:/media
+      - ${MEDIA_PATH_SHOWS_ALT:-/mnt/media/shows}:/sullivan
+    ports:
+      - "8989:8989"
+    restart: always
+
+  # radarr
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    networks:
+      - download
+      - media
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/radarr:/config
+      # DATA: Database and logs
+      - radarr_data:/data
+      # DOWNLOADS: For import
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+      # MEDIA: Movies directory
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/movies
+      - ${MEDIA_PATH:-/mnt/media}:/media
+      - ${MEDIA_PATH_MOVIES_ALT:-/mnt/media/movies}:/sullivan
+    ports:
+      - "7878:7878"
+    restart: always
+  
+  # lidarr
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    networks:
+      - download
+      - media
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/lidarr:/config
+      # DATA: Database and logs
+      - lidarr_data:/data
+      # DOWNLOADS: For import
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+      # MEDIA: Music directory
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/music
+      - ${MEDIA_PATH:-/mnt/media}:/media
+    ports:
+      - "8686:8686"
+    restart: always
+
+  # readarr audiobooks
+  readarr.audio:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr.audio
+    networks:
+      - download
+      - books
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/readarr-audio:/config
+      # DATA: Database and logs
+      - readarr_audio_data:/data
+      # DOWNLOADS: For import
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+      # MEDIA: Audiobooks directory
+      - ${MEDIA_PATH_AUDIOBOOKS:-/mnt/media/books/audiobooks}:/audiobooks
+    ports:
+      - "8787:8787"
+    restart: always
+
+  # readarr ebooks
+  readarr.ebooks:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr.ebooks
+    networks:
+      - download
+      - books
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/readarr-ebooks:/config
+      # DATA: Database and logs
+      - readarr_ebooks_data:/data
+      # DOWNLOADS: For import
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+      # MEDIA: Ebooks directory
+      - ${MEDIA_PATH_EBOOKS:-/mnt/media/ebooks}:/ebooks
+    ports:
+      - "8585:8787"
+    restart: always
+
+  # unpackerr
+  unpackerr:
+    image: golift/unpackerr
+    container_name: unpackerr
+    networks:
+      - download
+    volumes:
+      # CONFIG: Git-managed if you have custom config
+      - ./config/unpackerr:/config
+      # DOWNLOADS: Working directories
+      - ${MEDIA_PATH:-/mnt/media}:/media
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+    user: ${PUID:-1000}:${PGID:-100}
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - UN_DEBUG=false
+      - UN_INTERVAL=2m
+      - UN_START_DELAY=1m
+      - UN_RETRY_DELAY=5m
+      - UN_MAX_RETRIES=3
+      - UN_PARALLEL=1
+      - UN_FILE_MODE=0777
+      - UN_DIR_MODE=0777
+      - UN_SONARR_0_URL=http://sonarr:8989
+      - UN_SONARR_0_API_KEY=${SONARR_API_KEY}
+      - UN_SONARR_0_PATHS_0=/complete/tv-sonarr
+      - UN_SONARR_0_PROTOCOLS=torrent
+      - UN_SONARR_0_TIMEOUT=10s
+      - UN_SONARR_0_DELETE_ORIG=false
+      - UN_SONARR_0_DELETE_DELAY=5m
+      - UN_RADARR_0_URL=http://radarr:7878
+      - UN_RADARR_0_API_KEY=${RADARR_API_KEY}
+      - UN_RADARR_0_PATHS_0=/complete/radarr
+      - UN_RADARR_0_PROTOCOLS=torrent
+      - UN_RADARR_0_TIMEOUT=10s
+      - UN_RADARR_0_DELETE_ORIG=false
+      - UN_RADARR_0_DELETE_DELAY=5m
+      - UN_LIDARR_0_URL=http://lidarr:8686
+      - UN_LIDARR_0_API_KEY=${LIDARR_API_KEY}
+      - UN_LIDARR_0_PATHS_0=/complete/lidarr
+      - UN_LIDARR_0_PROTOCOLS=torrent
+      - UN_LIDARR_0_TIMEOUT=10s
+      - UN_LIDARR_0_DELETE_ORIG=false
+      - UN_LIDARR_0_DELETE_DELAY=5m
+      - UN_READARR_0_URL=http://readarr.audio:8787
+      - UN_READARR_0_API_KEY=${READARR_AUDIO_API_KEY}
+      - UN_READARR_0_PATHS_0=/complete/audiobooks
+      - UN_READARR_0_PROTOCOLS=torrent
+      - UN_READARR_0_TIMEOUT=10s
+      - UN_READARR_0_DELETE_ORIG=false
+      - UN_READARR_0_DELETE_DELAY=5m
+      - UN_READARR_1_URL=http://readarr.ebooks:8787
+      - UN_READARR_1_API_KEY=${READARR_EBOOKS_API_KEY}
+      - UN_READARR_1_PATHS_0=/complete/readarr
+      - UN_READARR_1_PROTOCOLS=torrent
+      - UN_READARR_1_TIMEOUT=10s
+      - UN_READARR_1_DELETE_ORIG=false
+      - UN_READARR_1_DELETE_DELAY=5m
+      - UN_FOLDER_0_PATH=/complete
+      - UN_FOLDER_0_DELETE_AFTER=10m
+      - UN_FOLDER_0_DELETE_ORIGINAL=false
+      - UN_FOLDER_0_DELETE_FILES=false
+      - UN_FOLDER_0_MOVE_BACK=false
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+
+  # doplarr
+  doplarr:
+    image: lscr.io/linuxserver/doplarr:latest
+    container_name: doplarr
+    networks:
+      - download
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - DISCORD__TOKEN=${DISCORD_TOKEN}
+      - RADARR__API=${RADARR_API_KEY}
+      - RADARR__URL=http://radarr:7878
+      - SONARR__API=${SONARR_API_KEY}
+      - SONARR__URL=http://sonarr:8989
+      - DISCORD__MAX_RESULTS=${DISCORD_MAX_RESULTS:-25}
+      - DISCORD__REQUESTED_MSG_STYLE=${DISCORD_MSG_STYLE:-:plain}
+      - SONARR__QUALITY_PROFILE=${SONARR_QUALITY_PROFILE:-Any}
+      - RADARR__QUALITY_PROFILE=${RADARR_QUALITY_PROFILE:-Any}
+      - SONARR__ROOTFOLDER=${SONARR_ROOT_FOLDER:-/shows}
+      - RADARR__ROOTFOLDER=${RADARR_ROOT_FOLDER:-/movies}
+      - SONARR__LANGUAGE_PROFILE=${SONARR_LANGUAGE_PROFILE:-English}
+      - OVERSEERR__DEFAULT_ID=
+      - PARTIAL_SEASONS=true
+      - LOG_LEVEL=:info
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/doplarr:/config
+    restart: always
+
+  # =============================================================================
+  # UTILITY SERVICES
+  # =============================================================================
+
+  # filebot node
+  filebot-node:
+    container_name: filebot-node
+    image: rednoah/filebot:node
+    networks:
+      - utilities
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/filebot:/config
+      # DATA: Application data
+      - filebot_data:/data
+      # MEDIA: For organizing
+      - ${MEDIA_PATH:-/mnt/media}:/media
+      - ${MEDIA_PATH_CLEAN:-/mnt/media/clean}:/clean
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/movies
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/shows
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/music
+      - ${DOWNLOAD_PATH_COMPLETE:-/mnt/media/qbittorrent/complete}:/complete
+    ports:
+      - "5452:5452"
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - FILEBOT_NODE_AUTH=BASIC
+      - FILEBOT_NODE_AUTH_USER=${FILEBOT_USER}
+      - FILEBOT_NODE_AUTH_PASS=${FILEBOT_PASSWORD}
+    restart: always
+
+  # youtube-dl
+  ytdl_material:
+    image: tzahi12345/youtubedl-material:latest
+    container_name: ytdl_material
+    networks:
+      - utilities
+      - database
+    environment:
+      - ytdl_mongodb_connection_string=mongodb://ytdl-mongo-db:27017
+      - ytdl_use_local_db=false
+      - write_ytdl_config=true
+    depends_on:
+      - ytdl-mongo-db
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/youtube-dl:/app/appdata/config
+      # DATA: Application data
+      - ytdl_data:/app/appdata
+      # MEDIA: Download directories
+      - ${YOUTUBE_AUDIO_PATH:-/mnt/media/youtube/audio}:/app/audio
+      - ${YOUTUBE_VIDEO_PATH:-/mnt/media/youtube/video}:/app/video
+    ports:
+      - "8998:17442"
+    restart: always
+
+  # duplicati
+  duplicati:
+    image: lscr.io/linuxserver/duplicati:latest
+    container_name: duplicati
+    networks:
+      - utilities
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/duplicati:/config
+      # DATA: Application data
+      - duplicati_data:/data
+      # BACKUP: Source and destination
+      - ${BACKUP_DESTINATION:-/mnt/media/backup}:/backup
+      - ${BACKUP_SOURCE:-/home/jordan/}:/source
+    ports:
+      - "8200:8200"
+    restart: always
+
+  # mealie
+  mealie:
+    image: hkotel/mealie:latest
+    container_name: mealie
+    networks:
+      - utilities
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - ALLOW_SIGNUP=true
+      - PGUSERDB=mealie
+      - PGPASSWORD=${MEALIE_DB_PASSWORD}
+      - LDAP_AUTH_ENABLED=false
+      - MAX_WORKERS=1
+      - WEB_CONCURRENCY=1
+      - BASE_URL=${MEALIE_BASE_URL:-http://localhost:9925}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/mealie:/config
+      # DATA: Application data and recipes
+      - mealie_data:/app/data
+    ports:
+      - "9925:9000"
+    restart: always
+
+  # grocy
+  grocy:
+    image: lscr.io/linuxserver/grocy:latest
+    container_name: grocy
+    networks:
+      - utilities
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/grocy:/config
+      # DATA: Application data
+      - grocy_data:/data
+    ports:
+      - "9283:80"
+    restart: always
+
+  # syncthing - file synchronization
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing_sullivan
+    networks:
+      - utilities
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/syncthing-sullivan:/config
+      # DATA: Application data
+      - syncthing_data:/data
+      # SYNC: Directories to sync (media content)
+      - ${SYNCTHING_MEDIA_PATH:-/mnt/media}:/sync/media
+      - ${SYNCTHING_DOWNLOADS_PATH:-/mnt/media/qbittorrent}:/sync/downloads
+    ports:
+      - "8385:8384"  # Different port to avoid conflict with Freddy
+      - "22001:22000/tcp"
+      - "22001:22000/udp"
+      - "21028:21027/udp"
+    restart: always
+
+  # nextcloud - personal cloud storage and productivity
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud
+    networks:
+      - utilities
+      - database 
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/Toronto}
+      - MYSQL_HOST=nextcloud-mysql
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:-nextcloud}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/nextcloud:/config
+      # DATA: Application data and user files
+      - nextcloud_data:/var/www/html
+      # MEDIA: Access to media files (read-only for sharing)
+      - ${MEDIA_PATH:-/mnt/media}:/media:ro
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/mnt/media/movies:ro
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/mnt/media/shows:ro
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/mnt/media/music:ro
+      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/mnt/media/books:ro
+      # PERSONAL: Personal file storage
+      - ${NEXTCLOUD_DATA_PATH:-/home/jordan/nextcloud}:/personal
+    ports:
+      - "8081:80"
+    depends_on:
+      - nextcloud-mysql
+    restart: always
+
+  # =============================================================================
+  # SYSTEM SERVICES
+  # =============================================================================
+
+  # portainer - docker management ui
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    networks:
+      - monitoring
+      - frontend
+    environment:
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # SYSTEM: Required for Docker management
+      - /var/run/docker.sock:/var/run/docker.sock
+      # DATA: Application data
+      - portainer_data:/data
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    restart: always
+    command: --admin-password='${PORTAINER_ADMIN_PASSWORD}'
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  # homarr
+  homarr:
+    container_name: homarr
+    image: ghcr.io/ajnart/homarr:latest
+    networks:
+      - utilities
+      - monitoring
+    environment:
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/homarr:/config
+      # DATA: Application data and dashboards
+      - homarr_data:/app/data
+      # SYSTEM: For Docker integration
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "7575:7575"
+    restart: always
+
+  # =============================================================================
+  # DATABASE SERVICES
+  # =============================================================================
+
+  # ytdl-mongo-db
+  ytdl-mongo-db:
+    image: mongo:latest
+    container_name: mongo-db
+    networks:
+      - database
+    logging:
+      driver: "none"
+    volumes:
+      # DATA: MongoDB data files
+      - ytdl_mongodb:/data/db
+    restart: always
+
+  # nextcloud-mysql - database for nextcloud
+  nextcloud-mysql:
+    image: mysql:latest
+    container_name: nextcloud-mysql
+    networks:
+      - database
+    environment:
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:-nextcloud}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/nextcloud-mysql:/etc/mysql/conf.d
+      # DATA: Database files
+      - nextcloud_mysql:/var/lib/mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+
+  # =============================================================================
+  # MONITORING SERVICES
+  # =============================================================================
+
+  # watchtower - automatic container updates
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    networks:
+      - monitoring
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=86400
+      - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_REVIVE_STOPPED=false
+      - WATCHTOWER_SCHEDULE=${WATCHTOWER_SCHEDULE:-0 2 * * *}
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/watchtower:/config
+      # SYSTEM: Required for Docker management
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  # datadog agent - monitoring and observability
+  datadog:
+    image: gcr.io/datadoghq/agent:7
+    container_name: datadog-agent
+    networks:
+      - monitoring
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_HOSTNAME=${DD_HOSTNAME:-sullivan-server}
+      - DD_TAGS=${DD_TAGS:-env:homelab,service:media-server}
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_CONTAINER_EXCLUDE="name:datadog-agent"
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_AC_EXCLUDE="name:datadog-agent"
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/datadog:/etc/datadog-agent/conf.d
+      # DATA: Agent data
+      - datadog_data:/opt/datadog-agent/run
+      # SYSTEM: Required for monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"

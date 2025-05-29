@@ -1,0 +1,20 @@
+# .dockerignore file
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Git repository files
+.git/
+
+# macOS system files
+.DS_Store
+
+# Local environment and virtual environments
+#.env
+*.venv
+*.log
+
+# Pytest cache
+.pytest_cache/
