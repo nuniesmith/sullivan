@@ -248,3 +248,4 @@
 2025-05-29 14:45:19.4615 Info Jackett startup finished in 3.904 s
 2025-05-29 15:45:19.2486 Info Checking for updates... Jackett variant: CoreLinuxMuslAmdx64
 2025-05-29 15:45:19.8061 Info Jackett is already updated. Current version: v0.22.1967
+2025-05-29 18:50:50.1580 Info Jackett stopped

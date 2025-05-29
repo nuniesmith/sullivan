@@ -857,7 +857,7 @@ services:
       - TZ=${TZ:-America/Toronto}
     volumes:
       # CONFIG: Git-managed configuration
-      - ./config/nextcloud-mysql:/etc/mysql/conf.d
+      - ./config/nextcloud/mysql:/etc/mysql/conf.d
       # DATA: Database files
       - nextcloud_mysql:/var/lib/mysql
     restart: unless-stopped

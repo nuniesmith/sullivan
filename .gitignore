@@ -336,3 +336,19 @@ outputs/
 
 # Syncthing
 .stfolder/
+config/qbittorrent/qBittorrent/rss/storage.lock
+config/qbittorrent/qBittorrent/rss/articles/storage.lock
+config/radarr/logs.db-shm
+config/radarr/logs.db-wal
+config/radarr/radarr.db-shm
+config/radarr/radarr.db-wal
+config/readarr-audio/logs.db-shm
+config/readarr-audio/logs.db-wal
+config/readarr-audio/readarr.db-shm
+config/readarr-audio/readarr.db-wal
+config/readarr-ebooks/logs.db-shm
+config/readarr-ebooks/logs.db-wal
+config/readarr-ebooks/readarr.db-shm
+config/readarr-ebooks/readarr.db-wal
+config/syncthing-sullivan/syncthing.lock
+config/jackett/Jackett/log.txt
