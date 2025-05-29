@@ -47,7 +47,7 @@
   <UninstalledPlugins />
   <CollapseVideoFolders>false</CollapseVideoFolders>
   <EnableOriginalTrackTitles>false</EnableOriginalTrackTitles>
-  <VacuumDatabaseOnStartup>true</VacuumDatabaseOnStartup>
+  <VacuumDatabaseOnStartup>false</VacuumDatabaseOnStartup>
   <SimultaneousStreamLimit>0</SimultaneousStreamLimit>
   <DatabaseCacheSizeMB>128</DatabaseCacheSizeMB>
   <EnableSqLiteMmio>false</EnableSqLiteMmio>

@@ -352,3 +352,38 @@ config/readarr-ebooks/readarr.db-shm
 config/readarr-ebooks/readarr.db-wal
 config/syncthing-sullivan/syncthing.lock
 config/jackett/Jackett/log.txt
+config/lidarr/lidarr.pid
+config/plex/Library/Application Support/Plex Media Server/.LocalAdminToken
+config/plex/Library/Application Support/Plex Media Server/plexmediaserver.pid
+config/plex/Library/Application Support/Plex Media Server/Crash Reports/.RateLimit.json
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.1
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.2
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.3
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.4
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.5
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.1
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.2
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.3
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.4
+config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.5
+config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/Dict
+config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/HTTPCookies
+config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.blobs.db-shm
+config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.blobs.db-wal
+config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db-shm
+config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db-wal
+config/qbittorrent/qBittorrent/lockfile
+config/radarr/logs.db-shm
+config/radarr/logs.db-wal
+config/readarr-audio/logs.db-shm
+config/readarr-audio/logs.db-wal
+config/readarr-audio/readarr.pid
+config/readarr-ebooks/logs.db-shm
+config/readarr-ebooks/logs.db-wal
+config/readarr-ebooks/readarr.pid
+config/sonarr/logs.db-shm
+config/sonarr/logs.db-wal
+config/sonarr/sonarr.db-shm
+config/sonarr/sonarr.db-wal
+config/sonarr/sonarr.pid
+config/jackett/Jackett/log.txt
