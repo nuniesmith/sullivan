@@ -79,6 +79,32 @@ redis_data/
 *.rdb
 *.aof
 
+# Arr applications database files
+logs.db
+logs.db-shm
+logs.db-wal
+nzbdrone.db*
+sonarr.db*
+radarr.db*
+lidarr.db*
+prowlarr.db*
+readarr.db*
+readarr-audio.db*
+readarr-ebooks.db*
+
+# Arr application directories and logs
+config/radarr/
+config/sonarr/
+config/lidarr/
+config/readarr/
+config/readarr-audio/
+config/readarr-ebooks/
+config/prowlarr/
+**/Logs/
+**/logs/
+**/*.trace
+**/backup.db*
+
 # Configuration files that may contain secrets
 config/authelia/configuration.yml
 config/authelia/users_database.yml
