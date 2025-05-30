@@ -37,10 +37,12 @@ volumes:
   portainer_data:
   syncthing_data:
   nextcloud_data:
+  wiki_data:
   
   # Database volumes
   ytdl_mongodb:
   nextcloud_mysql:
+  wiki_postgres:
   
   # Monitoring/System volumes
   watchtower_data:
@@ -763,7 +765,7 @@ services:
       - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
     volumes:
       # CONFIG: Git-managed configuration
-      - ./config/nextcloud:/config
+      - ./config/nextcloud/app:/config
       # DATA: Application data and user files
       - nextcloud_data:/var/www/html
       # MEDIA: Access to media files (read-only for sharing)
@@ -778,6 +780,32 @@ services:
       - "8081:80"
     depends_on:
       - nextcloud-mysql
+    restart: always
+
+  # wiki.js - knowledge management and documentation
+  wiki:
+    image: ghcr.io/requarks/wiki:2
+    container_name: wiki
+    networks:
+      - utilities
+      - database
+    depends_on:
+      - wiki-postgres
+    environment:
+      - TZ=${TZ:-America/Toronto}
+      - DB_TYPE=postgres
+      - DB_HOST=wiki-postgres
+      - DB_PORT=5432
+      - DB_USER=${WIKI_DB_USER:-wikijs}
+      - DB_PASS=${WIKI_DB_PASSWORD:-wikijsrocks}
+      - DB_NAME=${WIKI_DB_NAME:-wiki}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/wiki:/config
+      # DATA: Application data
+      - wiki_data:/wiki
+    ports:
+      - "8090:3000"
     restart: always
 
   # =============================================================================
@@ -862,6 +890,26 @@ services:
       - nextcloud_mysql:/var/lib/mysql
     restart: unless-stopped
     command: --default-authentication-plugin=mysql_native_password
+
+  # wiki-postgres - database for wiki.js
+  wiki-postgres:
+    image: postgres:15-alpine
+    container_name: wiki-postgres
+    networks:
+      - database
+    environment:
+      - POSTGRES_DB=${WIKI_DB_NAME:-wiki}
+      - POSTGRES_USER=${WIKI_DB_USER:-wikijs}
+      - POSTGRES_PASSWORD=${WIKI_DB_PASSWORD:-123456}
+      - TZ=${TZ:-America/Toronto}
+    volumes:
+      # CONFIG: Git-managed configuration
+      - ./config/wiki/postgres:/etc/postgresql/conf.d
+      # DATA: Database files
+      - wiki_postgres:/var/lib/postgresql/data
+    logging:
+      driver: "none"
+    restart: unless-stopped
 
   # =============================================================================
   # MONITORING SERVICES
