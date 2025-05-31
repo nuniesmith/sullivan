@@ -336,108 +336,40 @@ outputs/
 
 # Syncthing
 .stfolder/
-config/qbittorrent/qBittorrent/rss/storage.lock
-config/qbittorrent/qBittorrent/rss/articles/storage.lock
-config/radarr/logs.db-shm
-config/radarr/logs.db-wal
-config/radarr/radarr.db-shm
-config/radarr/radarr.db-wal
-config/readarr-audio/logs.db-shm
-config/readarr-audio/logs.db-wal
-config/readarr-audio/readarr.db-shm
-config/readarr-audio/readarr.db-wal
-config/readarr-ebooks/logs.db-shm
-config/readarr-ebooks/logs.db-wal
-config/readarr-ebooks/readarr.db-shm
-config/readarr-ebooks/readarr.db-wal
-config/syncthing-sullivan/syncthing.lock
-config/jackett/Jackett/log.txt
-config/lidarr/lidarr.pid
-config/plex/Library/Application Support/Plex Media Server/.LocalAdminToken
-config/plex/Library/Application Support/Plex Media Server/plexmediaserver.pid
-config/plex/Library/Application Support/Plex Media Server/Crash Reports/.RateLimit.json
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.5
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.5
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/Dict
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/HTTPCookies
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.blobs.db-shm
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.blobs.db-wal
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db-shm
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db-wal
-config/qbittorrent/qBittorrent/lockfile
-config/radarr/logs.db-shm
-config/radarr/logs.db-wal
-config/readarr-audio/logs.db-shm
-config/readarr-audio/logs.db-wal
-config/readarr-audio/readarr.pid
-config/readarr-ebooks/logs.db-shm
-config/readarr-ebooks/logs.db-wal
-config/readarr-ebooks/readarr.pid
+
+# JPG/PNG files
+*.jpg
+*.jpeg
+*.png
+# Video files
+*.mp4
+*.mkv
+# Audio files
+*.mp3
+# Archive files
+*.zip
+*.tar.gz
+# Temporary files
+*.tmp
+# Miscellaneous
+*.bak
+# IDE specific files
+*.code-workspace
+
+./config/plex/config/Library/Application Support/Plex Media Server/Cache/*
+config/jackett/config/Jackett/updater.txt
+config/jackett/config/Jackett/updater.txt.20250414.00000.txt
+config/jackett/config/Jackett/updater.txt.20250424.00000.txt
+config/jackett/config/Jackett/updater.txt.20250504.00000.txt
+config/jackett/config/Jackett/updater.txt.20250515.00000.txt
+config/jackett/config/Jackett/updater.txt.20250521.00000.txt
+config/jackett/config/Jackett/DataProtection/key-2f6336ad-f2ed-47a2-82a3-72100cc8c42e.xml
+config/jackett/config/Jackett/DataProtection/key-a9416818-98d8-4f31-8d9d-54b9dc5f170d.xml
+config/jackett/config/Jackett/DataProtection/key-b50024d6-47c1-4892-98df-c790659fbea9.xml
+config/jackett/config/Jackett/DataProtection/key-b4146136-d296-442e-94a2-5546a22eeddb.xml
+config/jackett/config/Jackett/DataProtection/key-d4b15074-1c14-4dd5-a9f1-e59525128445.xml
+config/jackett/config/Jackett/DataProtection/key-e3ee8be0-c7d3-4837-be08-a902f668cb22.xml
 config/sonarr/logs.db-shm
 config/sonarr/logs.db-wal
 config/sonarr/sonarr.db-shm
 config/sonarr/sonarr.db-wal
-config/sonarr/sonarr.pid
-config/jackett/Jackett/log.txt
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/HTTPCookies
-config/radarr/logs.db-shm
-config/radarr/logs.db-wal
-config/radarr/radarr.pid
-config/readarr-audio/logs.db-shm
-config/readarr-audio/logs.db-wal
-config/readarr-audio/readarr.pid
-config/readarr-ebooks/logs.db-shm
-config/readarr-ebooks/logs.db-wal
-config/sonarr/logs.db-shm
-config/sonarr/logs.db-wal
-config/sonarr/sonarr.db-shm
-config/sonarr/sonarr.db-wal
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.5
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.5
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/Dict
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/HTTPCookies
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.5
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.5
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/Dict
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/HTTPCookies
-config/lidarr/lidarr.pid
-config/plex/Library/Application Support/Plex Media Server/.LocalAdminToken
-config/plex/Library/Application Support/Plex Media Server/Crash Reports/.RateLimit.json
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.agents.imdb.log.5
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.1
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.2
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.3
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.4
-config/plex/Library/Application Support/Plex Media Server/Logs/PMS Plugin Logs/com.plexapp.system.log.5
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/Dict
-config/plex/Library/Application Support/Plex Media Server/Plug-in Support/Data/com.plexapp.system/HTTPCookies
-config/jackett/Jackett/log.txt
-config/calibre/.dbus/session-bus/09a9ace3d5df4e7c96b57415e495489c-1
