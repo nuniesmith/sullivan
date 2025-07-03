@@ -394,7 +394,7 @@ services:
 
   # readarr audiobooks
   readarr.audio:
-    image: lscr.io/linuxserver/readarr:develop
+    image: lscr.io/linuxserver/readarr:nightly
     container_name: readarr.audio
     environment:
       - PUID=${PUID:-1000}
@@ -413,7 +413,7 @@ services:
 
   # readarr ebooks
   readarr.ebooks:
-    image: lscr.io/linuxserver/readarr:develop
+    image: lscr.io/linuxserver/readarr:nightly
     container_name: readarr.ebooks
     environment:
       - PUID=${PUID:-1000}
@@ -587,7 +587,7 @@ services:
 
   # mealie
   mealie:
-    image: hkotel/mealie:latest
+    image: ghcr.io/mealie-recipes/mealie:nightly
     container_name: mealie
     environment:
       - PUID=${PUID:-1000}
@@ -643,37 +643,6 @@ services:
       - "21028:21027/udp"
     restart: always
 
-  # nextcloud - personal cloud storage and productivity
-  nextcloud:
-    image: nextcloud:latest
-    container_name: nextcloud
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-100}
-      - TZ=${TZ:-America/Toronto}
-      - MYSQL_HOST=nextcloud-mysql
-      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
-      - MYSQL_USER=${NEXTCLOUD_DB_USER:-nextcloud}
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
-      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
-      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
-    volumes:
-      # DATA: Application data and user files
-      - nextcloud_data:/var/www/html
-      # MEDIA: Access to media files (read-only for sharing)
-      - ${MEDIA_PATH:-/mnt/media}:/media:ro
-      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/mnt/media/movies:ro
-      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/mnt/media/shows:ro
-      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/mnt/media/music:ro
-      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/mnt/media/books:ro
-      # PERSONAL: Personal file storage
-      - ${NEXTCLOUD_DATA_PATH:-/home/jordan/nextcloud}:/personal
-    ports:
-      - "8081:80"
-    depends_on:
-      - nextcloud-mysql
-    restart: always
-
   # wiki.js - knowledge management and documentation
   wiki:
     image: ghcr.io/requarks/wiki:2
@@ -696,29 +665,6 @@ services:
     restart: always
 
   # =============================================================================
-  # SYSTEM SERVICES
-  # =============================================================================
-
-  # portainer - docker management ui
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    environment:
-      - TZ=${TZ:-America/Toronto}
-    volumes:
-      # SYSTEM: Required for Docker management
-      - /var/run/docker.sock:/var/run/docker.sock
-      # DATA: Application data
-      - portainer_data:/config
-    ports:
-      - "9000:9000"
-      - "9443:9443"
-    restart: always
-    command: --admin-password='${PORTAINER_ADMIN_PASSWORD}'
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
-
-  # =============================================================================
   # DATABASE SERVICES
   # =============================================================================
 
@@ -732,21 +678,6 @@ services:
       # DATA: MongoDB data files
       - ytdl_mongodb:/data/db
     restart: always
-
-  # nextcloud-mysql - database for nextcloud
-  nextcloud-mysql:
-    image: mysql:latest
-    container_name: nextcloud-mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
-      - MYSQL_USER=${NEXTCLOUD_DB_USER:-nextcloud}
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
-      - TZ=${TZ:-America/Toronto}
-    volumes:
-      # DATA: Database files
-      - nextcloud_mysql:/var/lib/mysql
-    restart: unless-stopped
 
   # wiki-postgres - database for wiki.js
   wiki-postgres:
@@ -787,37 +718,5 @@ services:
       # SYSTEM: Required for Docker management
       - /var/run/docker.sock:/var/run/docker.sock
     restart: always
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
-
-  # datadog agent - monitoring and observability
-  datadog:
-    image: gcr.io/datadoghq/agent:7
-    container_name: datadog-agent
-    environment:
-      - TZ=${TZ:-America/Toronto}
-      - DD_API_KEY=${DD_API_KEY}
-      - DD_SITE=${DD_SITE:-datadoghq.com}
-      - DD_HOSTNAME=${DD_HOSTNAME:-sullivan-server}
-      - DD_TAGS=${DD_TAGS:-env:homelab,service:web-server}
-      - DD_PROCESS_AGENT_ENABLED=true
-      - DD_CONTAINER_EXCLUDE="name:datadog-agent"
-      - DD_LOGS_ENABLED=true
-      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
-      - DD_AC_EXCLUDE="name:datadog-agent"
-      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
-    volumes:
-      # DATA: Agent data
-      - datadog_data:/opt/datadog-agent/run
-      # SYSTEM: Required for monitoring
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc/:/host/proc/:ro
-      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - apparmor:unconfined
-    restart: unless-stopped    # ✅ Consistent restart policy
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
