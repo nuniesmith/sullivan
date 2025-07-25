@@ -39,6 +39,7 @@ pull_images_staggered() {
   sleep 3
   docker compose pull sonarr radarr lidarr || log "WARNING: Some *arr service pulls failed, continuing..."
   sleep 3
+  # Note: Using hotio/readarr as linuxserver version has architecture issues
   docker compose pull readarr.audio readarr.ebooks || log "WARNING: Some readarr service pulls failed, continuing..."
   sleep 3
   docker compose pull unpackerr doplarr || log "WARNING: Some support service pulls failed, continuing..."

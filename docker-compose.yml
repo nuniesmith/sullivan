@@ -1,5 +1,5 @@
 # Docker Compose for SULLIVAN - Media & Intensive Services
-# Powerful server with GPU access handling media, downloads, AI, and user applications
+# Powerful server handling media, downloads, AI, and user applications
 
 # Named volumes for data/cache/databases only
 volumes:
@@ -76,16 +76,17 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [compute, utility]
+    runtime: runc
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [compute, utility]
     environment:
       - TZ=${TZ:-America/Toronto}
-      - NVIDIA_VISIBLE_DEVICES=all
+      # - NVIDIA_VISIBLE_DEVICES=all
     volumes:
       # DATA: Model data and cache
       - ollama_data:/root/.ollama
@@ -117,13 +118,14 @@ services:
   emby:
     image: emby/embyserver
     container_name: emby
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [compute, utility, video]
+    runtime: runc
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [compute, utility, video]
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -149,13 +151,14 @@ services:
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [compute, utility, video]
+    runtime: runc
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [compute, utility, video]
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -180,13 +183,14 @@ services:
   plex:
     image: lscr.io/linuxserver/plex:latest
     container_name: plex
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [compute, utility, video]
+    runtime: runc
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [compute, utility, video]
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -394,7 +398,7 @@ services:
 
   # readarr audiobooks
   readarr.audio:
-    image: lscr.io/linuxserver/readarr:nightly
+    image: hotio/readarr:latest
     container_name: readarr.audio
     environment:
       - PUID=${PUID:-1000}
@@ -413,7 +417,7 @@ services:
 
   # readarr ebooks
   readarr.ebooks:
-    image: lscr.io/linuxserver/readarr:nightly
+    image: hotio/readarr:latest
     container_name: readarr.ebooks
     environment:
       - PUID=${PUID:-1000}
