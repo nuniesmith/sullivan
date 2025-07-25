@@ -1,0 +1,11 @@
+[Unit]
+Description=Sullivan Docker Cleanup Timer
+Requires=sullivan-cleanup.service
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target

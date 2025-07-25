@@ -1,0 +1,16 @@
+[Unit]
+Description=Sullivan Docker Cleanup Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=actions_user
+WorkingDirectory=/home/actions_user/sullivan
+ExecStart=/bin/bash -c 'docker system prune -af --volumes && docker image prune -af && journalctl --vacuum-time=7d'
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

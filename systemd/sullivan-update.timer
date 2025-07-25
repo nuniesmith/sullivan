@@ -1,0 +1,11 @@
+[Unit]
+Description=Sullivan Docker Update Timer
+Requires=sullivan-update.service
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,201 @@
+name: Deploy to Sullivan Server
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup SSH agent
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    
+    - name: Add known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H nginx.7gram.xyz >> ~/.ssh/known_hosts
+        ssh-keyscan -H 7gram.xyz >> ~/.ssh/known_hosts
+    
+    - name: Deploy to Sullivan via nginx jump host
+      run: |
+        # First, copy the repository to the jump host
+        rsync -avz --delete \
+          --exclude '.git' \
+          --exclude '.github' \
+          --exclude 'README.md' \
+          ./ actions_user@nginx.7gram.xyz:~/sullivan-temp/
+        
+        # Then execute deployment commands through the jump host
+        ssh -o StrictHostKeyChecking=no actions_user@nginx.7gram.xyz << 'ENDSSH'
+          # Forward SSH agent and connect to Sullivan
+          ssh -A -o StrictHostKeyChecking=no actions_user@sullivan << 'SULLIVAN_EOF'
+            set -e
+            
+            echo "=== Starting deployment to Sullivan ==="
+            
+            # Create sullivan directory if it doesn't exist
+            mkdir -p ~/sullivan
+            
+            # Stop services before updating
+            echo "Stopping Docker services..."
+            cd ~/sullivan || exit 1
+            if [ -f docker-compose.yml ]; then
+              docker compose down || echo "No running services to stop"
+            fi
+            
+            # Create backup of current setup
+            if [ -f docker-compose.yml ]; then
+              echo "Creating backup..."
+              cp docker-compose.yml docker-compose.yml.backup.$(date +%Y%m%d_%H%M%S)
+            fi
+            
+            echo "Deployment completed successfully"
+        SULLIVAN_EOF
+        
+        # Copy files from temp to Sullivan
+        echo "Copying files to Sullivan..."
+        rsync -avz --delete ~/sullivan-temp/ actions_user@sullivan:~/sullivan/
+        
+        # Cleanup temp directory
+        rm -rf ~/sullivan-temp
+        ENDSSH
+        
+        # Execute the update script on Sullivan
+        ssh -o StrictHostKeyChecking=no actions_user@nginx.7gram.xyz << 'ENDSSH'
+          ssh -A -o StrictHostKeyChecking=no actions_user@sullivan << 'SULLIVAN_EOF'
+            set -e
+            cd ~/sullivan
+            
+            echo "=== Setting up systemd services ==="
+            
+            # Create systemd service for daily updates if it doesn't exist
+            if [ ! -f /etc/systemd/system/sullivan-update.service ]; then
+              echo "Creating sullivan-update systemd service..."
+              sudo tee /etc/systemd/system/sullivan-update.service > /dev/null << 'SERVICE_EOF'
+        [Unit]
+        Description=Sullivan Docker Update Service
+        After=docker.service
+        Requires=docker.service
+        
+        [Service]
+        Type=oneshot
+        User=actions_user
+        WorkingDirectory=/home/actions_user/sullivan
+        ExecStart=/home/actions_user/sullivan/scripts/update_docker.sh all
+        StandardOutput=journal
+        StandardError=journal
+        
+        [Install]
+        WantedBy=multi-user.target
+        SERVICE_EOF
+            fi
+            
+            # Create systemd timer for daily updates if it doesn't exist
+            if [ ! -f /etc/systemd/system/sullivan-update.timer ]; then
+              echo "Creating sullivan-update systemd timer..."
+              sudo tee /etc/systemd/system/sullivan-update.timer > /dev/null << 'TIMER_EOF'
+        [Unit]
+        Description=Sullivan Docker Update Timer
+        Requires=sullivan-update.service
+        
+        [Timer]
+        OnCalendar=daily
+        RandomizedDelaySec=300
+        Persistent=true
+        
+        [Install]
+        WantedBy=timers.target
+        TIMER_EOF
+            fi
+            
+            # Create systemd service for weekly cleanup if it doesn't exist
+            if [ ! -f /etc/systemd/system/sullivan-cleanup.service ]; then
+              echo "Creating sullivan-cleanup systemd service..."
+              sudo tee /etc/systemd/system/sullivan-cleanup.service > /dev/null << 'CLEANUP_SERVICE_EOF'
+        [Unit]
+        Description=Sullivan Docker Cleanup Service
+        After=docker.service
+        Requires=docker.service
+        
+        [Service]
+        Type=oneshot
+        User=actions_user
+        WorkingDirectory=/home/actions_user/sullivan
+        ExecStart=/bin/bash -c 'docker system prune -af --volumes && docker image prune -af && journalctl --vacuum-time=7d'
+        StandardOutput=journal
+        StandardError=journal
+        
+        [Install]
+        WantedBy=multi-user.target
+        CLEANUP_SERVICE_EOF
+            fi
+            
+            # Create systemd timer for weekly cleanup if it doesn't exist
+            if [ ! -f /etc/systemd/system/sullivan-cleanup.timer ]; then
+              echo "Creating sullivan-cleanup systemd timer..."
+              sudo tee /etc/systemd/system/sullivan-cleanup.timer > /dev/null << 'CLEANUP_TIMER_EOF'
+        [Unit]
+        Description=Sullivan Docker Cleanup Timer
+        Requires=sullivan-cleanup.service
+        
+        [Timer]
+        OnCalendar=weekly
+        RandomizedDelaySec=1800
+        Persistent=true
+        
+        [Install]
+        WantedBy=timers.target
+        CLEANUP_TIMER_EOF
+            fi
+            
+            # Reload systemd and enable services
+            echo "Enabling systemd services..."
+            sudo systemctl daemon-reload
+            sudo systemctl enable sullivan-update.timer
+            sudo systemctl enable sullivan-cleanup.timer
+            sudo systemctl start sullivan-update.timer
+            sudo systemctl start sullivan-cleanup.timer
+            
+            echo "=== Running Docker update ==="
+            
+            # Make scripts executable
+            chmod +x scripts/*.sh
+            
+            # Run the update script
+            ./scripts/update_docker.sh all
+            
+            echo "=== Deployment completed successfully ==="
+            
+            # Show status
+            echo "=== Service Status ==="
+            docker compose ps
+            
+            echo "=== Timer Status ==="
+            sudo systemctl status sullivan-update.timer --no-pager -l
+            sudo systemctl status sullivan-cleanup.timer --no-pager -l
+        SULLIVAN_EOF
+        ENDSSH
+
+    - name: Verify deployment
+      run: |
+        ssh -o StrictHostKeyChecking=no actions_user@nginx.7gram.xyz << 'ENDSSH'
+          ssh -A -o StrictHostKeyChecking=no actions_user@sullivan << 'SULLIVAN_EOF'
+            cd ~/sullivan
+            echo "=== Final verification ==="
+            echo "Docker services status:"
+            docker compose ps | head -20
+            echo ""
+            echo "Systemd timers status:"
+            systemctl list-timers sullivan-* --no-pager
+        SULLIVAN_EOF
+        ENDSSH
