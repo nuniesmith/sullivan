@@ -107,7 +107,7 @@ services:
       # DATA: Application data and user content
       - openwebui_data:/app/backend/data
     ports:
-      - "3000:8080"
+      - "3001:8080"  # Changed from 3000 to avoid conflict with nginx web-interface
     restart: always
 
   # =============================================================================
@@ -501,6 +501,9 @@ services:
   doplarr:
     image: lscr.io/linuxserver/doplarr:latest
     container_name: doplarr
+    depends_on:
+      - radarr
+      - sonarr
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-100}
