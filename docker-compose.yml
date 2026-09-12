@@ -50,8 +50,6 @@ volumes:
   jellyfin_cache:
   plex_data:
   plex_cache:
-  calibre_data:
-  calibre_web_data:
 
   # Download Management volumes
   sonarr_data:
@@ -87,8 +85,6 @@ networks:
   media:
     driver: bridge
   download:
-    driver: bridge
-  books:
     driver: bridge
   database:
     driver: bridge
@@ -244,53 +240,6 @@ services:
       start_period: 90s
     networks:
       - media
-
-  # calibre
-  calibre:
-    image: lscr.io/linuxserver/calibre:latest
-    container_name: calibre
-    security_opt:
-      - seccomp:unconfined
-    environment:
-      <<: *common-env
-    volumes:
-      # DATA: Database and converted files
-      - calibre_data:/config
-      # MEDIA: Books directory
-      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/books
-    ports:
-      - "8082:8080"
-      - "8083:8081"
-    restart: always
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f calibre || exit 1"]
-      <<: *healthcheck-defaults
-      start_period: 60s
-    networks:
-      - books
-
-  # calibre web
-  calibre-web:
-    image: lscr.io/linuxserver/calibre-web:latest
-    container_name: calibre-web
-    environment:
-      <<: *common-env
-    volumes:
-      # DATA: Application data
-      - calibre_web_data:/data
-      # MEDIA: Read-write books for full media management
-      - ${MEDIA_PATH_BOOKS:-/mnt/media/books}:/books:rw
-    ports:
-      - "8084:8083"
-    restart: always
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083"]
-      <<: *healthcheck-defaults
-      start_period: 40s
-    networks:
-      - books
 
   # =============================================================================
   # DOWNLOAD MANAGEMENT
