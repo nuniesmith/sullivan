@@ -260,6 +260,18 @@ services:
       - ${DOWNLOAD_PATH_COMPLETE:-/media/qbittorrent/complete}:/complete
       - ${DOWNLOAD_PATH_TORRENT:-/media/qbittorrent/torrent}:/torrent
       - ${DOWNLOAD_PATH_MONITOR:-/media/qbittorrent/monitor}:/monitor
+      # Shelfmark's download category. Mounted at /shelfmark rather than under
+      # /complete because unpackerr's catch-all watcher is UN_FOLDER_0_PATH=/complete
+      # — a category under there would be extracted by unpackerr and by Shelfmark
+      # at the same time.
+      #
+      # The container path matters. /media is bound to /mnt/media, so a save path
+      # of "/media/qbittorrent/shelfmark" resolves to /mnt/media/qbittorrent/shelfmark
+      # on the host — NOT the host's /media/qbittorrent/shelfmark, which is the
+      # root the shelfmark-sync account's forced `rrsync -ro` is restricted to.
+      # Downloads would land somewhere that account cannot read, and the pull
+      # would fail with a permission error that looks like a broken SSH key.
+      - ${DOWNLOAD_PATH_SHELFMARK:-/media/qbittorrent/shelfmark}:/shelfmark
       # MEDIA: For seeding and *arr access to final destinations
       - ${MEDIA_PATH_SEED:-/mnt/media/seed}:/seed
       - ${MEDIA_PATH:-/mnt/media}:/media
