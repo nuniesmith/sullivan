@@ -279,7 +279,18 @@ services:
       - ${MEDIA_PATH_AUDIOBOOKS:-/mnt/media/books/audiobooks}:/audiobooks
       - ${MEDIA_PATH_EBOOKS:-/mnt/media/books/ebooks}:/ebooks
     ports:
-      - "8080:8080"
+      # WebUI on the TAILNET ONLY. Published on 0.0.0.0 it was reachable from
+      # anything on the house LAN — a guest phone, an IoT device, a laptop —
+      # and this UI can add torrents and rewrite save paths.
+      #
+      # Shelfmark on Freddy reaches this as http://sullivan:8080, and
+      # `sullivan` resolves to 100.87.125.19 (the tailnet address) inside
+      # that container, so the pipeline is unaffected. Reaching the UI from a
+      # browser now needs Tailscale on that device.
+      - "${TAILNET_BIND:-100.87.125.19}:8080:8080"
+      # NOT restricted: this is the BitTorrent listen port. Peers are the
+      # public internet, not the tailnet — binding it would stop incoming
+      # connections and quietly wreck seeding.
       - "60000:60000"
     restart: always
     logging: *default-logging
@@ -304,7 +315,14 @@ services:
     volumes:
       - prowlarr_data:/config
     ports:
-      - "9696:9696"
+      # Tailnet only — see qbittorrent above. Prowlarr holds the IPTorrents
+      # credential and its API key grabs on that account, which is the one
+      # thing here that cannot be re-bought if it is abused or banned.
+      #
+      # Note ufw does NOT protect these: Docker writes its own iptables rules
+      # ahead of ufw's chain, so a published port is open whatever ufw says.
+      # Binding the address is what actually closes it.
+      - "${TAILNET_BIND:-100.87.125.19}:9696:9696"
     restart: always
     logging: *default-logging
     healthcheck:
