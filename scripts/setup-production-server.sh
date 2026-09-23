@@ -212,6 +212,76 @@ fi
 usermod -aG docker actions
 log_success "User 'actions' added to docker group"
 
+# Automation user, separate from the interactive admin so automated changes
+# are attributable in logs and revocable on their own -- `userdel -r claude`
+# ends its access without rotating jordan's key. Created by hand 2026-09-22;
+# kept here so a rebuild does not lose it.
+if id "claude" >/dev/null 2>&1; then
+    log_warn "User 'claude' already exists"
+else
+    useradd -m -s /bin/bash -c "Claude automation" claude
+    log_success "User 'claude' created"
+fi
+install -d -m 700 -o claude -g claude /home/claude/.ssh
+CLAUDE_KEY='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGe/TXKI4lHF5/8scltcJ+gcSc3GPmD80jt94kfYoq8Z claude@oryx'
+touch /home/claude/.ssh/authorized_keys
+# Append, never overwrite, and never twice -- re-running setup must not drop
+# a key someone else added.
+grep -qF "$(echo "$CLAUDE_KEY" | awk '{print $2}')" /home/claude/.ssh/authorized_keys 2>/dev/null \
+    || echo "$CLAUDE_KEY" >> /home/claude/.ssh/authorized_keys
+chown claude:claude /home/claude/.ssh/authorized_keys
+chmod 600 /home/claude/.ssh/authorized_keys
+passwd -l claude 2>/dev/null || true
+usermod -aG docker claude
+echo 'claude ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/claude
+chmod 440 /etc/sudoers.d/claude
+# A malformed drop-in locks everyone out of root, so validate and revert.
+visudo -c >/dev/null 2>&1 || { rm -f /etc/sudoers.d/claude; log_error "sudoers invalid - claude sudo reverted"; }
+log_success "User 'claude' configured (key, docker, sudo)"
+
+# -----------------------------------------------------------------------------
+# SSH hardening. Sullivan had NONE of this: measured 2026-09-22, the live box
+# reported passwordauthentication yes, maxauthtries 6, permitrootlogin
+# without-password -- stock Ubuntu defaults, on a host publishing services to
+# the tailnet.
+#
+# NAMED 00-, NOT 99-. sshd honours the FIRST occurrence of each keyword across
+# sshd_config.d (the opposite of sysctl.d, where last wins), and Ubuntu's
+# cloud image ships 50-cloud-init.conf containing "PasswordAuthentication
+# yes". freddy learned this the expensive way -- its 99- file set
+# "PasswordAuthentication no" and the server kept accepting passwords, while
+# the three directives cloud-init does not mention applied normally and made
+# the hardening look fine.
+# -----------------------------------------------------------------------------
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-sullivan-hardening.conf <<'SSHEOF'
+# Sullivan Server SSH Hardening
+PermitRootLogin no
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+PermitEmptyPasswords no
+MaxAuthTries 3
+MaxSessions 5
+LoginGraceTime 30
+X11Forwarding no
+LogLevel VERBOSE
+ClientAliveInterval 300
+ClientAliveCountMax 2
+AllowUsers actions jordan claude
+SSHEOF
+chmod 644 /etc/ssh/sshd_config.d/00-sullivan-hardening.conf
+
+# Validate BEFORE reloading. A bad config that gets reloaded on a remote box
+# is how you lose the machine.
+if sshd -t 2>/dev/null; then
+    systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+    log_success "SSH hardening applied (password auth disabled, key-only)"
+else
+    rm -f /etc/ssh/sshd_config.d/00-sullivan-hardening.conf
+    log_error "sshd config invalid - hardening reverted, server left as it was"
+fi
+
 # Configure jordan user if it exists or if we detected them
 if [ -n "$REAL_USER" ]; then
     if id "$REAL_USER" >/dev/null 2>&1; then
