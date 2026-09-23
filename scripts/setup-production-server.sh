@@ -269,6 +269,15 @@ LogLevel VERBOSE
 ClientAliveInterval 300
 ClientAliveCountMax 2
 AllowUsers actions jordan claude
+
+# Password auth stays available ON THE TAILNET ONLY. jordans-iphone
+# authenticates by password and has no key; closing it globally locks the
+# phone out of both home servers. Port 22 is ufw-open to Anywhere, so this
+# still removes password auth from the LAN and from outside, which is where
+# the brute-force risk is. Delete once the phone has a key.
+# Match MUST be last -- everything after it applies only to matched conns.
+Match Address 100.64.0.0/10
+    PasswordAuthentication yes
 SSHEOF
 chmod 644 /etc/ssh/sshd_config.d/00-sullivan-hardening.conf
 
