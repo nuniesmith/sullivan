@@ -1,0 +1,192 @@
+# Uptime-Kuma monitor inventory for the homelab.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Uptime-Kuma had ONE monitor configured for ~40 services across three hosts.
+# That gap is the root cause of services dying unnoticed: a dead PhotoPrism went
+# undetected for four weeks while its port stayed open the whole time.
+#
+# DESIGN RULE: prefer a check that fails when the APP is broken over one that
+# merely proves something is listening. Concretely:
+#   - type "keyword" asserts a string the app can only emit if it is working.
+#   - type "http"    asserts a real status code from an app endpoint.
+#   - type "port"    is a LAST RESORT (marked weak: true below). It proves only
+#                    that a socket accepts connections. PhotoPrism passed exactly
+#                    this kind of check while being completely dead.
+#
+# Hosts are addressed by Tailscale IP because two sullivan services (prowlarr,
+# qbittorrent) bind ONLY to the tailnet address, not 0.0.0.0.
+
+hosts:
+  sullivan: 100.87.125.19
+  freddy: 100.106.65.55
+
+defaults:
+  interval: 60
+  retryInterval: 60
+  maxretries: 2
+  accepted_statuscodes: ["200-299"]
+
+monitors:
+  # ---------------- hosts themselves ----------------
+  - name: "host: sullivan"
+    type: ping
+    hostname: 100.87.125.19
+  - name: "host: freddy"
+    type: ping
+    hostname: 100.106.65.55
+
+  # ---------------- media servers ----------------
+  # Verified 2026-09-22: returns JSON containing "Version".
+  - name: "emby"
+    type: keyword
+    url: "http://100.87.125.19:8096/System/Info/Public"
+    keyword: "Version"
+  # Jellyfin /health returns the literal string "Healthy".
+  - name: "jellyfin"
+    type: keyword
+    url: "http://100.87.125.19:8097/health"
+    keyword: "Healthy"
+  # Plex /identity returns XML with machineIdentifier.
+  - name: "plex"
+    type: keyword
+    url: "http://100.87.125.19:32400/identity"
+    keyword: "machineIdentifier"
+
+  # ---------------- *arr stack ----------------
+  # /ping returns {"status": "OK"} on a healthy *arr instance.
+  - name: "sonarr"
+    type: keyword
+    url: "http://100.87.125.19:8989/ping"
+    keyword: "OK"
+  - name: "radarr"
+    type: keyword
+    url: "http://100.87.125.19:7878/ping"
+    keyword: "OK"
+  - name: "lidarr"
+    type: keyword
+    url: "http://100.87.125.19:8686/ping"
+    keyword: "OK"
+  - name: "prowlarr"
+    type: keyword
+    url: "http://100.87.125.19:9696/ping"
+    keyword: "OK"
+  # bazarr /ping serves its SPA shell, so assert the app title instead.
+  - name: "bazarr"
+    type: keyword
+    url: "http://100.87.125.19:6767/"
+    keyword: "Bazarr"
+
+  # ---------------- requests / indexers / downloaders ----------------
+  - name: "seerr"
+    type: keyword
+    url: "http://100.87.125.19:5055/api/v1/status"
+    keyword: "version"
+  - name: "flaresolverr"
+    type: keyword
+    url: "http://100.87.125.19:8191/health"
+    keyword: "ok"
+  - name: "qbittorrent"
+    type: keyword
+    url: "http://100.87.125.19:8080/"
+    keyword: "qBittorrent"
+
+  # ---------------- utilities ----------------
+  - name: "tdarr"
+    type: http
+    url: "http://100.87.125.19:8265/"
+  - name: "filebot-node"
+    type: http
+    url: "http://100.87.125.19:5452/"
+  - name: "dispatcharr"
+    type: http
+    url: "http://100.87.125.19:9191/"
+  - name: "ytdl-material"
+    type: keyword
+    url: "http://100.87.125.19:8998/"
+    keyword: "YoutubeDLMaterial"
+  # KNOWN DOWN 2026-09-22: nothing is listening on 8200. This monitor is
+  # expected to alert immediately; that is correct behaviour, not a bad check.
+  - name: "duplicati"
+    type: http
+    url: "http://100.87.125.19:8200/"
+  # KNOWN DOWN 2026-09-22: returns HTTP 500,
+  # "Invalid setting in config.php: Configured AUTH_CLASS". Real outage.
+  - name: "grocy"
+    type: http
+    url: "http://100.87.125.19:9283/"
+  - name: "mealie"
+    type: keyword
+    url: "http://100.87.125.19:9925/api/app/about"
+    keyword: "version"
+
+  # ---------------- wiki ----------------
+  - name: "wiki"
+    type: http
+    url: "http://100.87.125.19:8090/healthz"
+  # Proves the DB behind wiki.js is reachable, not just that the port answers.
+  - name: "wiki-postgres (via wiki)"
+    type: port
+    hostname: 100.87.125.19
+    port: 8090
+    weak: true
+
+  # ---------------- freddy ----------------
+  # PhotoPrism: /api/v1/status returns {"status":"operational"}. This is the
+  # exact check whose absence let PhotoPrism sit dead for four weeks.
+  - name: "photoprism"
+    type: keyword
+    url: "http://100.106.65.55:2342/api/v1/status"
+    keyword: "operational"
+  # Nextcloud status.php reports {"installed":true,...} only when the app works.
+  - name: "nextcloud"
+    type: keyword
+    url: "http://100.106.65.55:8080/status.php"
+    keyword: "installed"
+  - name: "audiobookshelf"
+    type: keyword
+    url: "http://100.106.65.55:13378/healthcheck"
+    keyword: "ok"
+  - name: "authentik"
+    type: http
+    url: "http://100.106.65.55:9000/-/health/live/"
+    accepted_statuscodes: ["200-299", "204"]
+  - name: "shelfmark-api"
+    type: http
+    url: "http://100.106.65.55:8110/health"
+  - name: "uptime-kuma (self)"
+    type: http
+    url: "http://100.106.65.55:3001/api/entry-page"
+
+  # ---------------- containers with no HTTP surface ----------------
+  # Uptime-Kuma mounts /var/run/docker.sock read-only, so these use the "docker"
+  # monitor type: it reports the container's real state/health, which is far
+  # stronger than a port probe. These only work for containers on FREDDY, the
+  # host Kuma runs on.
+  - name: "docker: authentik-postgres"
+    type: docker
+    docker_container: authentik-postgres
+  - name: "docker: authentik-redis"
+    type: docker
+    docker_container: authentik-redis
+  - name: "docker: authentik-worker"
+    type: docker
+    docker_container: authentik-worker
+  - name: "docker: nextcloud-postgres"
+    type: docker
+    docker_container: nextcloud-postgres
+  - name: "docker: nextcloud-cron"
+    type: docker
+    docker_container: nextcloud-cron
+  - name: "docker: photoprism-postgres"
+    type: docker
+    docker_container: photoprism-postgres
+  - name: "docker: shelfmark-worker"
+    type: docker
+    docker_container: shelfmark-worker
+  - name: "docker: shelfmark-bot"
+    type: docker
+    docker_container: shelfmark-bot
+  - name: "docker: homeassistant"
+    type: docker
+    docker_container: homeassistant
