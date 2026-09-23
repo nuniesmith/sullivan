@@ -140,7 +140,13 @@ services:
     restart: always
     logging: *default-logging
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      # The emby/embyserver image ships no curl, so the old curl-based check
+      # never ran at all ("exec: curl: executable file not found in $PATH") and
+      # pinned Emby to "unhealthy" forever. It also probed /health, which is a
+      # Jellyfin route and 404s on Emby. busybox wget IS present, and
+      # /System/Info/Public is served by the Emby app itself, so this check goes
+      # red only when Emby is genuinely broken.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8096/System/Info/Public"]
       <<: *healthcheck-defaults
       start_period: 90s
     networks:
@@ -562,7 +568,10 @@ services:
       - sonarr
       - radarr
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5055/api/v1/status"]
+      # seerr/seerr ships no curl either, so this check could never execute.
+      # busybox wget is present; /api/v1/status is an application endpoint that
+      # fails if seerr itself is unhealthy, not merely if the port is open.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5055/api/v1/status"]
       <<: *healthcheck-defaults
       start_period: 40s
     networks:
