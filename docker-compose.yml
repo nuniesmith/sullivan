@@ -61,10 +61,8 @@ volumes:
 
   # Utility volumes
   filebot_data:
-  duplicati_data:
   ytdl_data:
   mealie_data:
-  grocy_data:
   wiki_data:
   seerr_data:
   tdarr_server_data:
@@ -728,34 +726,6 @@ services:
         limits:
           memory: 1G
 
-  # duplicati
-  duplicati:
-    image: lscr.io/linuxserver/duplicati:latest
-    container_name: duplicati
-    environment:
-      <<: *common-env
-      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY}
-    volumes:
-      # DATA: Application data
-      - duplicati_data:/config
-      # BACKUP: Source and destination
-      - ${BACKUP_DESTINATION:-/mnt/media/backup}:/backup
-      - ${BACKUP_SOURCE:-/home/jordan/}:/source
-    ports:
-      - "8200:8200"
-    restart: always
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8200"]
-      <<: *healthcheck-defaults
-      start_period: 40s
-    networks:
-      - utilities
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
   # mealie
   mealie:
     image: ghcr.io/mealie-recipes/mealie:latest
@@ -786,30 +756,6 @@ services:
       resources:
         limits:
           memory: 512M
-
-  # grocy
-  grocy:
-    image: lscr.io/linuxserver/grocy:latest
-    container_name: grocy
-    environment:
-      <<: *common-env
-    volumes:
-      # DATA: Application data
-      - grocy_data:/config
-    ports:
-      - "9283:80"
-    restart: always
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      <<: *healthcheck-defaults
-      start_period: 40s
-    networks:
-      - utilities
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   # wiki.js - knowledge management and documentation
   wiki:
