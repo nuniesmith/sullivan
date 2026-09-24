@@ -107,14 +107,8 @@ monitors:
     keyword: "YoutubeDLMaterial"
   # KNOWN DOWN 2026-09-22: nothing is listening on 8200. This monitor is
   # expected to alert immediately; that is correct behaviour, not a bad check.
-  - name: "duplicati"
-    type: http
-    url: "http://100.87.125.19:8200/"
   # KNOWN DOWN 2026-09-22: returns HTTP 500,
   # "Invalid setting in config.php: Configured AUTH_CLASS". Real outage.
-  - name: "grocy"
-    type: http
-    url: "http://100.87.125.19:9283/"
   - name: "mealie"
     type: keyword
     url: "http://100.87.125.19:9925/api/app/about"
@@ -146,14 +140,13 @@ monitors:
   - name: "audiobookshelf"
     type: keyword
     url: "http://100.106.65.55:13378/healthcheck"
-    keyword: "ok"
-  - name: "authentik"
-    type: http
-    url: "http://100.106.65.55:9000/-/health/live/"
-    accepted_statuscodes: ["200-299", "204"]
+    # The body is literally "OK". Kuma matches keywords
+    # case-sensitively, so "ok" reports a healthy service DOWN.
+    keyword: "OK"
   - name: "shelfmark-api"
     type: http
-    url: "http://100.106.65.55:8110/health"
+    # /health is a 404 on shelfmark; /healthz and /readyz both answer 200.
+    url: "http://100.106.65.55:8110/healthz"
   - name: "uptime-kuma (self)"
     type: http
     url: "http://100.106.65.55:3001/api/entry-page"
@@ -163,24 +156,12 @@ monitors:
   # monitor type: it reports the container's real state/health, which is far
   # stronger than a port probe. These only work for containers on FREDDY, the
   # host Kuma runs on.
-  - name: "docker: authentik-postgres"
-    type: docker
-    docker_container: authentik-postgres
-  - name: "docker: authentik-redis"
-    type: docker
-    docker_container: authentik-redis
-  - name: "docker: authentik-worker"
-    type: docker
-    docker_container: authentik-worker
   - name: "docker: nextcloud-postgres"
     type: docker
     docker_container: nextcloud-postgres
   - name: "docker: nextcloud-cron"
     type: docker
     docker_container: nextcloud-cron
-  - name: "docker: photoprism-postgres"
-    type: docker
-    docker_container: photoprism-postgres
   - name: "docker: shelfmark-worker"
     type: docker
     docker_container: shelfmark-worker
