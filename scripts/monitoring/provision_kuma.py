@@ -29,6 +29,33 @@ except ImportError:
 INVENTORY = Path(__file__).with_name("monitors.yml")
 
 
+
+def ensure_docker_host(api, name: str, socket_path: str) -> int:
+    """Return the id of a Docker Host in Kuma, creating it if absent.
+
+    Kuma's `docker` monitor type does not talk to Docker directly -- it
+    references a Docker Host entity configured separately, and the API
+    rejects the monitor with "missing 1 required argument: 'docker_host'"
+    if one does not exist yet. Provisioning the monitors therefore has to
+    provision the host first.
+
+    Matched by name so re-running updates nothing and creates no duplicates.
+    """
+    from uptime_kuma_api import DockerType
+
+    for h in api.get_docker_hosts():
+        if h.get("name") == name:
+            return h["id"]
+    created = api.add_docker_host(
+        name=name, dockerType=DockerType.SOCKET, dockerDaemon=socket_path
+    )
+    # The API returns the created host under different keys by version.
+    host = created.get("dockerHost") or created
+    return host["id"] if isinstance(host, dict) and "id" in host else (
+        next(h["id"] for h in api.get_docker_hosts() if h.get("name") == name)
+    )
+
+
 def build_payloads(doc: dict) -> list[dict]:
     """Translate the inventory into uptime-kuma-api monitor kwargs."""
     defaults = doc.get("defaults") or {}
@@ -122,9 +149,22 @@ def main() -> int:
         existing = {m["name"]: m["id"] for m in api.get_monitors()}
         print(f"connected to {url}; {len(existing)} monitor(s) already present")
 
+        # Docker monitors reference a Docker Host entity, not the daemon
+        # directly, so it has to exist before any of them can be created.
+        docker_host_id = None
+        if any(p["_type"] == "docker" for p in payloads):
+            docker_host_id = ensure_docker_host(
+                api,
+                os.environ.get("KUMA_DOCKER_HOST_NAME", "freddy-socket"),
+                os.environ.get("KUMA_DOCKER_SOCKET", "/var/run/docker.sock"),
+            )
+            print(f"  docker host id={docker_host_id}")
+
         for p in payloads:
             spec = {k: v for k, v in p.items() if k != "_type"}
             spec["type"] = type_map[p["_type"]]
+            if p["_type"] == "docker":
+                spec["docker_host"] = docker_host_id
             name = spec["name"]
             try:
                 if name in existing:
