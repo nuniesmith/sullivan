@@ -158,7 +158,22 @@ jobs:
                         echo "📥 Pulling latest changes..."
                         git fetch origin
                         git checkout ${{ github.ref_name }}
-                        git pull origin ${{ github.ref_name }}
+                        # An unguarded `git pull` ABORTS on any local change to
+                        # a tracked file and returns non-zero -- and because
+                        # nothing checked that, the deploy carried on and
+                        # reported success while running stale code. On
+                        # 2026-09-24 that left duplicati and grocy running for
+                        # a merge that had removed them, and the compose on the
+                        # box was ~30 hours behind main.
+                        #
+                        # The box is a deploy target, not a place to edit, so
+                        # origin wins -- but say out loud what is being thrown
+                        # away, or this silently eats someone's hotfix.
+                        git pull origin ${{ github.ref_name }} || {
+                          echo "::warning::git pull failed - discarding local changes on the box to avoid deploying STALE code"
+                          git status --porcelain
+                          git reset --hard "origin/${{ github.ref_name }}"
+                        }
                       fi
 
                       # Ensure run.sh is executable
