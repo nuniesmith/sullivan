@@ -752,7 +752,10 @@ services:
 
   # ytdl-mongo-db
   ytdl-mongo-db:
-    image: mongo:latest
+    # Major-pinned, not `latest`: MongoDB cannot skip a major version, and the
+    # daily update would otherwise take ytdl's database to one the moment it is
+    # tagged. 8.x is what runs today (8.3, featureCompatibilityVersion 8.2).
+    image: mongo:8
     container_name: mongo-db
     logging:
       driver: "none"

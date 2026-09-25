@@ -1,0 +1,80 @@
+# ============================================================================
+# Daily maintenance for sullivan: apt packages and container images
+# ============================================================================
+# Every morning, after the nightly backup has finished:
+#   1. apt update + upgrade, through homelab-apt-upgrade on sullivan. Never
+#      reboots; the report says when a reboot is needed. The helper runs the
+#      upgrade as a systemd unit, so upgrading tailscale -- which drops the
+#      very connection this job arrives on -- cannot kill dpkg halfway.
+#   2. pulls newer images, recreates only the services whose image changed,
+#      and proves each one healthy -- rolling back what is not.
+#   3. posts to Discord when something changed or went wrong, and stays quiet
+#      on a morning with nothing to do.
+#
+# ytdl_material is built here from an upstream image that installs deno with
+# `curl | sh` at build time; rebuilding that every morning would run a remote
+# script daily for an app nobody is waiting on, so it is not rebuilt here.
+#
+# The logic is in nuniesmith/actions (host-update) and, for apt, nuniesmith/
+# scripts (src/updates).
+#
+# ONE-TIME SETUP on sullivan, for the apt half (installs the helper and the
+# one sudo rule that lets `actions` run it):
+#     sudo ./src/updates/install.sh      # in a checkout of nuniesmith/scripts
+# ============================================================================
+name: 🌅 Sullivan Daily Update
+
+on:
+    schedule:
+        # 11:41 UTC = 07:41 Toronto in summer, 06:41 in winter: after
+        # sullivan's nightly backup (~04:30 local) is done, and more than an
+        # hour after freddy's run. The two hosts share one public IP, and
+        # Docker Hub's anonymous pull limit is counted per IP per hour.
+        - cron: "41 11 * * *"
+    workflow_dispatch:
+        inputs:
+            apt:
+                description: "Upgrade apt packages"
+                type: boolean
+                default: true
+            docker:
+                description: "Refresh container images"
+                type: boolean
+                default: true
+
+permissions:
+    contents: read
+    actions: write # to wait for deploys in progress, and to keep this schedule alive
+
+# Never cancelled: stopping halfway through a recreate leaves a service split
+# across two images.
+concurrency:
+    group: sullivan-daily-update
+    cancel-in-progress: false
+
+jobs:
+    update:
+        name: 🌅 Update sullivan
+        runs-on: ubuntu-latest
+        timeout-minutes: 90
+        steps:
+            - name: 🔌 Connect to Tailscale
+              uses: nuniesmith/actions/.github/actions/tailscale-connect@main
+              with:
+                  oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+                  oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+                  target-ip: ${{ secrets.SULLIVAN_TAILSCALE_IP }}
+                  target-ssh-port: ${{ secrets.SSH_PORT || '22' }}
+
+            - name: 🌅 Update
+              uses: nuniesmith/actions/.github/actions/host-update@main
+              with:
+                  host-name: sullivan
+                  host: ${{ secrets.SULLIVAN_TAILSCALE_IP }}
+                  ssh-key: ${{ secrets.SULLIVAN_SSH_KEY }}
+                  ssh-user: ${{ secrets.SSH_USER || 'actions' }}
+                  ssh-port: ${{ secrets.SSH_PORT || '22' }}
+                  project-path: sullivan
+                  apt: ${{ github.event_name == 'schedule' || inputs.apt }}
+                  docker: ${{ github.event_name == 'schedule' || inputs.docker }}
+                  discord-webhook: ${{ secrets.DISCORD_WEBHOOK_ACTIONS }}
