@@ -42,11 +42,6 @@ monitors:
     type: keyword
     url: "http://100.87.125.19:8096/System/Info/Public"
     keyword: "Version"
-  # Jellyfin /health returns the literal string "Healthy".
-  - name: "jellyfin"
-    type: keyword
-    url: "http://100.87.125.19:8097/health"
-    keyword: "Healthy"
   # Plex /identity returns XML with machineIdentifier.
   - name: "plex"
     type: keyword

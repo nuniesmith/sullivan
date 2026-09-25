@@ -46,8 +46,6 @@ volumes:
       type: none
       o: bind
       device: ${BACKUP_DESTINATION:-/mnt/media/backup/emby}
-  jellyfin_data:
-  jellyfin_cache:
   plex_data:
   plex_cache:
 
@@ -145,49 +143,6 @@ services:
       # /System/Info/Public is served by the Emby app itself, so this check goes
       # red only when Emby is genuinely broken.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8096/System/Info/Public"]
-      <<: *healthcheck-defaults
-      start_period: 90s
-    networks:
-      - media
-
-  # jellyfin
-  jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
-    container_name: jellyfin
-    #runtime: nvidia
-    #deploy:
-    #    <<: *nvidia-deploy
-    #    resources:
-    #        limits:
-    #            memory: 3G
-    #        reservations:
-    #            devices:
-    #                - driver: nvidia
-    #                  count: all
-    #                  capabilities: [compute, utility, video]
-    environment:
-      <<: *common-env
-      LIBVA_DRIVER_NAME: ${LIBVA_DRIVER_NAME:-iHD}
-    volumes:
-      # DATA: Database, metadata, cache
-      - jellyfin_data:/config
-      - jellyfin_cache:/cache
-      # TRANSCODE: Temporary
-      - /tmp:/transcode
-      # MEDIA: Read-write media files for full media management
-      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/movies:rw
-      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/shows:rw
-      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/music:rw
-      - ${MEDIA_PATH_MUSIC_VIDEOS:-/mnt/media/music_videos}:/music_videos:rw
-      - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/edu:rw
-    devices:
-      - /dev/dri:/dev/dri
-    ports:
-      - "8097:8096"
-    restart: always
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
       <<: *healthcheck-defaults
       start_period: 90s
     networks:

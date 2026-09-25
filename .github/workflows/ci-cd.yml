@@ -1,10 +1,10 @@
 # ============================================================================
 # CI/CD Pipeline for SULLIVAN - Media Server
 # ============================================================================
-# Home media server running Emby, Jellyfin, Plex, Sonarr, Radarr, etc.
+# Home media server running Emby, Plex, Sonarr, Radarr, etc.
 # Repository: nuniesmith/sullivan
 #
-# Services: emby, jellyfin, plex, sonarr, radarr, lidarr, prowlarr, bazarr, qbittorrent,
+# Services: emby, plex, sonarr, radarr, lidarr, prowlarr, bazarr, qbittorrent,
 #           calibre, seerr, tdarr, recyclarr
 #
 # Features:
@@ -192,7 +192,6 @@ jobs:
                         22      # SSH
                         8096    # Emby
                         8920    # Emby HTTPS
-                        8097    # Jellyfin
                         32400   # Plex
                         8080    # qBittorrent
                         9696    # Prowlarr
@@ -367,7 +366,7 @@ jobs:
               if: always() && steps.deploy.outcome == 'success'
               uses: nuniesmith/actions/.github/actions/health-check@main
               with:
-                  containers: emby jellyfin plex sonarr radarr lidarr prowlarr bazarr qbittorrent seerr tdarr
+                  containers: emby plex sonarr radarr lidarr prowlarr bazarr qbittorrent seerr tdarr
                   ssh-host: ${{ secrets.SULLIVAN_TAILSCALE_IP }}
                   ssh-port: ${{ secrets.SSH_PORT || '22' }}
                   ssh-user: ${{ secrets.SSH_USER || 'actions' }}

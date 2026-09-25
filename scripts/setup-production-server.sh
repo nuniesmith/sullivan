@@ -462,7 +462,6 @@ if [ "$reply" = "y" ] || [ "$reply" = "Y" ]; then
 
     # Media Services
     ufw allow 8096/tcp comment 'Emby'
-    ufw allow 8097/tcp comment 'Jellyfin'
     ufw allow 32400/tcp comment 'Plex'
     
     # Download Management
