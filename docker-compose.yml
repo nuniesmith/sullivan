@@ -62,7 +62,6 @@ volumes:
   ytdl_data:
   mealie_data:
   wiki_data:
-  seerr_data:
   tdarr_server_data:
   tdarr_configs:
   recyclarr_data:
@@ -500,36 +499,6 @@ services:
       - lidarr
     networks:
       - download
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
-  # seerr - media request management (web UI for friends/family)
-  seerr:
-    image: seerr/seerr:latest
-    container_name: seerr
-    environment:
-      <<: *common-env
-    volumes:
-      - seerr_data:/app/config
-    ports:
-      - "5055:5055"
-    restart: always
-    logging: *default-logging
-    depends_on:
-      - sonarr
-      - radarr
-    healthcheck:
-      # seerr/seerr ships no curl either, so this check could never execute.
-      # busybox wget is present; /api/v1/status is an application endpoint that
-      # fails if seerr itself is unhealthy, not merely if the port is open.
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5055/api/v1/status"]
-      <<: *healthcheck-defaults
-      start_period: 40s
-    networks:
-      - download
-      - media
     deploy:
       resources:
         limits:
