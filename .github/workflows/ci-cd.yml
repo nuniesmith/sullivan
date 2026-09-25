@@ -31,6 +31,8 @@ on:
             # provision_kuma.py; editing it is no reason to stop and restart
             # every container on sullivan.
             - "scripts/monitoring/**"
+            # Editing the daily updater is no reason to restart everything either.
+            - ".github/workflows/daily-update.yml"
     pull_request:
         branches: [main]
     workflow_dispatch:
