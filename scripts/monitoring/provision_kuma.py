@@ -10,9 +10,15 @@ Uptime-Kuma has no REST API; it speaks Socket.IO. This uses the community
     export KUMA_USERNAME=admin
     export KUMA_PASSWORD=...            # or KUMA_TOKEN for 2FA
     python3 provision_kuma.py --apply   # omit --apply for a dry run
+    python3 provision_kuma.py --apply --test-notification
 
 Idempotency: monitors are matched by NAME. An existing monitor with the same
 name is updated in place rather than duplicated, so re-running is safe.
+
+Alerts go to a Discord webhook read from $KUMA_DISCORD_WEBHOOK, or else from
+~/.config/homelab/discord-webhook (one line, mode 600) -- the same file the
+backup jobs on oryx alert through. Every monitor is attached to it on every
+run, so a rebuilt Kuma gets its alerts back along with its monitors.
 """
 from __future__ import annotations
 
@@ -27,6 +33,48 @@ except ImportError:
     sys.exit("missing dependency: pip install pyyaml")
 
 INVENTORY = Path(__file__).with_name("monitors.yml")
+WEBHOOK_FILE = Path(
+    os.environ.get("KUMA_DISCORD_WEBHOOK_FILE", "~/.config/homelab/discord-webhook")
+).expanduser()
+NOTIFICATION_NAME = "Discord: servers"
+
+
+def load_webhook() -> str | None:
+    """The Discord webhook URL, or None when none is configured."""
+    url = os.environ.get("KUMA_DISCORD_WEBHOOK", "").strip()
+    if not url and WEBHOOK_FILE.is_file():
+        url = WEBHOOK_FILE.read_text().strip()
+    return url or None
+
+
+def ensure_discord_notification(api, name: str, webhook_url: str) -> int:
+    """Return the id of the Discord notification, creating or updating it.
+
+    Kuma had ZERO notification channels while it held 31 monitors: a red
+    monitor reached nobody unless someone happened to open the page, which is
+    how freddy's backup failed two nights running without anyone knowing. A
+    monitor wired to nobody is a dashboard, not an alert.
+
+    Matched by name, so re-running updates the webhook rather than adding a
+    second channel. `isDefault` puts it on monitors created in the UI later.
+    """
+    from uptime_kuma_api import NotificationType
+
+    settings = dict(
+        name=name,
+        type=NotificationType.DISCORD,
+        discordWebhookUrl=webhook_url,
+        isDefault=True,
+        applyExisting=True,
+    )
+    for n in api.get_notifications():
+        if n.get("name") == name:
+            api.edit_notification(n["id"], **settings)
+            return n["id"]
+    created = api.add_notification(**settings)
+    return created.get("id") or next(
+        n["id"] for n in api.get_notifications() if n.get("name") == name
+    )
 
 
 
@@ -106,7 +154,18 @@ def main() -> int:
         action="store_true",
         help="actually create/update monitors (default is a dry run)",
     )
+    ap.add_argument(
+        "--test-notification",
+        action="store_true",
+        help="with --apply, also send a test message through the Discord webhook",
+    )
     args = ap.parse_args()
+    webhook = load_webhook()
+    if not webhook:
+        print(
+            f"WARNING: no Discord webhook ($KUMA_DISCORD_WEBHOOK or {WEBHOOK_FILE}) -- "
+            "every monitor will alert NOBODY"
+        )
 
     doc = yaml.safe_load(INVENTORY.read_text())
     payloads = build_payloads(doc)
@@ -120,6 +179,8 @@ def main() -> int:
         for p in payloads:
             target = p.get("url") or p.get("docker_container") or p.get("hostname")
             print(f"  [dry-run] {p['_type']:8} {p['name']:32} {target}")
+        if webhook:
+            print(f"  [dry-run] notification {NOTIFICATION_NAME!r} on every monitor")
         print("\nDry run only. Re-run with --apply to write to Uptime-Kuma.")
         return 0
 
@@ -160,11 +221,29 @@ def main() -> int:
             )
             print(f"  docker host id={docker_host_id}")
 
+        notification_id = None
+        if webhook:
+            notification_id = ensure_discord_notification(api, NOTIFICATION_NAME, webhook)
+            print(f"  notification {NOTIFICATION_NAME!r} id={notification_id}")
+            if args.test_notification:
+                from uptime_kuma_api import NotificationType
+
+                result = api.test_notification(
+                    name=NOTIFICATION_NAME,
+                    type=NotificationType.DISCORD,
+                    discordWebhookUrl=webhook,
+                )
+                print(f"  test message: {result.get('msg', result)}")
+
         for p in payloads:
             spec = {k: v for k, v in p.items() if k != "_type"}
             spec["type"] = type_map[p["_type"]]
             if p["_type"] == "docker":
                 spec["docker_host"] = docker_host_id
+            # Explicitly, every run: applyExisting only covers monitors that
+            # existed when the notification was saved.
+            if notification_id is not None:
+                spec["notificationIDList"] = [notification_id]
             name = spec["name"]
             try:
                 if name in existing:
