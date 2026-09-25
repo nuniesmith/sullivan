@@ -147,6 +147,15 @@ monitors:
     type: http
     # /health is a 404 on shelfmark; /healthz and /readyz both answer 200.
     url: "http://100.106.65.55:8110/healthz"
+  - name: "lifeos"
+    type: keyword
+    # Readiness, not liveness -- it also fails when LifeOS's nightly backup is
+    # more than 36h old, so this doubles as that backup's alarm. The keyword is
+    # the TOP-LEVEL status: the body is {"status":"ok","checks":[{...,
+    # "status":"ok"},...]}, so a bare "status":"ok" would still match an inner
+    # check while the page as a whole reads degraded.
+    url: "http://100.106.65.55:8140/api/health/ready"
+    keyword: '{"status":"ok"'
   - name: "uptime-kuma (self)"
     type: http
     url: "http://100.106.65.55:3001/api/entry-page"
