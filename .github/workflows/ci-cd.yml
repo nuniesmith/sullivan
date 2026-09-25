@@ -27,6 +27,10 @@ on:
             - "**.md"
             - "docs/**"
             - ".gitignore"
+            # The Kuma inventory is applied to Kuma (on freddy) by
+            # provision_kuma.py; editing it is no reason to stop and restart
+            # every container on sullivan.
+            - "scripts/monitoring/**"
     pull_request:
         branches: [main]
     workflow_dispatch:
@@ -283,6 +287,9 @@ jobs:
                       fi
 
                   deploy-command: |
+                      # Without -e a failed `up` fell through to "Deployment
+                      # complete" -- how freddy reported success while EMPTY.
+                      set -euo pipefail
                       PROJECT_DIR="${HOME}/sullivan"
                       cd "$PROJECT_DIR"
 
@@ -305,15 +312,28 @@ jobs:
                         echo "⚠️  flock not available - deploying without a lock"
                       fi
 
+                      # Every image must be in hand BEFORE anything stops. On
+                      # freddy (2026-09-25) one `denied` from ghcr.io aborted
+                      # `up --pull always` AFTER `down`, and the host sat EMPTY
+                      # for 17 minutes while its deploy printed success. Pulling
+                      # first fails the deploy with the house still running.
+                      echo "📥 Pulling every image before stopping anything..."
+                      if ! docker compose pull --quiet; then
+                        echo "❌ Image pull failed -- the running stack was left untouched"
+                        exit 1
+                      fi
+                      echo "✅ All images pulled"
+
                       # Stop and remove existing containers + networks
                       # (run.sh stop only stops containers without removing them,
                       #  causing name conflicts on docker compose up)
                       echo "🐳 Stopping existing services..."
                       docker compose down --remove-orphans 2>/dev/null || true
 
-                      # Pull latest images and start all services in one pass
-                      echo "🚀 Pulling images & starting all services..."
-                      docker compose up -d --pull always --remove-orphans
+                      # The images are already pulled, so this does not touch the
+                      # registry: a registry hiccup cannot strand an empty host.
+                      echo "🚀 Starting all services..."
+                      docker compose up -d --remove-orphans
 
                   post-deploy-command: |
                       PROJECT_DIR="${HOME}/sullivan"
