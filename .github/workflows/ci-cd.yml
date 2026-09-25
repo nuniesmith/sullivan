@@ -5,7 +5,7 @@
 # Repository: nuniesmith/sullivan
 #
 # Services: emby, plex, sonarr, radarr, lidarr, prowlarr, bazarr, qbittorrent,
-#           calibre, seerr, tdarr, recyclarr
+#           calibre, tdarr, recyclarr
 #
 # Features:
 #   - Deployment via Tailscale + SSH
@@ -198,7 +198,6 @@ jobs:
                         8080    # qBittorrent
                         9696    # Prowlarr
                         6767    # Bazarr
-                        5055    # Seerr
                         8265    # Tdarr Web UI
                         8266    # Tdarr Server
                         8191    # Flaresolverr
@@ -368,7 +367,7 @@ jobs:
               if: always() && steps.deploy.outcome == 'success'
               uses: nuniesmith/actions/.github/actions/health-check@main
               with:
-                  containers: emby plex sonarr radarr lidarr prowlarr bazarr qbittorrent seerr tdarr
+                  containers: emby plex sonarr radarr lidarr prowlarr bazarr qbittorrent tdarr
                   ssh-host: ${{ secrets.SULLIVAN_TAILSCALE_IP }}
                   ssh-port: ${{ secrets.SSH_PORT || '22' }}
                   ssh-user: ${{ secrets.SSH_USER || 'actions' }}

@@ -73,10 +73,6 @@ monitors:
     keyword: "Bazarr"
 
   # ---------------- requests / indexers / downloaders ----------------
-  - name: "seerr"
-    type: keyword
-    url: "http://100.87.125.19:5055/api/v1/status"
-    keyword: "version"
   - name: "flaresolverr"
     type: keyword
     url: "http://100.87.125.19:8191/health"
