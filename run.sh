@@ -43,7 +43,7 @@ SERVICES=(
     # Post-processing (depends on ARR stack)
     "unpackerr" "seerr" "recyclarr"
     # Media servers
-    "emby" "jellyfin" "plex"
+    "emby" "plex"
     # Media processing
     "tdarr"
     # Book management
@@ -180,7 +180,7 @@ cleanup_orphans() {
 
     # Find and remove any stopped containers with sullivan-related names
     local orphans
-    orphans=$(docker ps -a --filter "status=exited" --filter "status=dead" --format "{{.Names}}" | grep -E "sullivan|emby|jellyfin|plex|sonarr|radarr|lidarr|qbittorrent|prowlarr|bazarr|calibre|mealie|grocy|wiki|duplicati|ytdl|filebot|seerr|unpackerr|flaresolverr|tdarr|recyclarr" || true)
+    orphans=$(docker ps -a --filter "status=exited" --filter "status=dead" --format "{{.Names}}" | grep -E "sullivan|emby|plex|sonarr|radarr|lidarr|qbittorrent|prowlarr|bazarr|calibre|mealie|grocy|wiki|duplicati|ytdl|filebot|seerr|unpackerr|flaresolverr|tdarr|recyclarr" || true)
 
     if [[ -n "$orphans" ]]; then
         log INFO "Removing orphan containers:"
@@ -699,7 +699,6 @@ show_endpoints() {
 
     echo "Media Servers:"
     echo "  Emby:            http://localhost:8096"
-    echo "  Jellyfin:        http://localhost:8097"
     echo "  Plex:            http://localhost:32400/web"
     echo ""
     echo "Download Management:"
@@ -773,7 +772,7 @@ ${BOLD}Commands:${NC}
 ${BOLD}Services:${NC}
     Specify service names to target specific services, or omit for all.
 
-    Media:      emby, jellyfin, plex
+    Media:      emby, plex
     Downloads:  qbittorrent, prowlarr, sonarr, radarr, lidarr, bazarr, flaresolverr
     Requests:   seerr
     Processing: tdarr, recyclarr, unpackerr
