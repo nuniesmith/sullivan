@@ -165,9 +165,11 @@ monitors:
   - name: "docker: shelfmark-worker"
     type: docker
     docker_container: shelfmark-worker
-  - name: "docker: shelfmark-bot"
+  # The household's one Discord bot; it replaced shelfmark-bot on the same
+  # token (nuniesmith/discordarr).
+  - name: "docker: discordarr"
     type: docker
-    docker_container: shelfmark-bot
+    docker_container: discordarr
   - name: "docker: homeassistant"
     type: docker
     docker_container: homeassistant
