@@ -58,9 +58,15 @@ env:
     # Note: Sullivan services are accessed via Freddy's nginx reverse proxy
     # DNS records point to Freddy's Tailscale IP, which proxies to Sullivan over Tailscale
 
+# A newer push used to CANCEL a deploy already running on the host, which can
+# leave it halfway through stopping and starting containers. On 2026-09-25 a
+# burst of merges cancelled princess's deploy after 85 seconds on the box.
+# Deploys now queue behind the running one instead; GitHub keeps only the
+# newest pending run, so a burst still ends with the latest commit deployed.
+# Pull-request runs only test, so a new push may still cancel the old one.
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
     run:
