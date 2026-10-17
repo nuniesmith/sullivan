@@ -27,6 +27,9 @@ on:
             - "**.md"
             - "docs/**"
             - ".gitignore"
+            # Run by hand on a fresh box, never by this deploy: editing it is no
+            # reason to restart every container on Sullivan.
+            - "scripts/setup-production-server.sh"
             # The Kuma inventory is applied to Kuma (on freddy) by
             # provision_kuma.py; editing it is no reason to stop and restart
             # every container on sullivan.
