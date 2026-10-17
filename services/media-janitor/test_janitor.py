@@ -167,6 +167,39 @@ class RunTests(Tree):
         self.assertTrue(path.exists())
 
 
+class QbittorrentLoginTests(unittest.TestCase):
+    """qBittorrent 5.x answers a good login with 204 and no body; 4.x with "Ok."."""
+
+    def opener(self, login_body: bytes) -> mock.Mock:
+        def respond(request, timeout=0):
+            response = mock.MagicMock()
+            url = request if isinstance(request, str) else request.full_url
+            body = login_body if url.endswith("/auth/login") else b"[]"
+            response.__enter__.return_value.read.return_value = body
+            return response
+
+        opener = mock.Mock()
+        opener.open.side_effect = respond
+        return opener
+
+    def call(self, login_body: bytes):
+        environ = {"QBITTORRENT_URL": "http://qbittorrent:8080", "QBITTORRENT_USERNAME": "u",
+                   "QBITTORRENT_PASSWORD": "p"}
+        with mock.patch.dict(os.environ, environ, clear=True), \
+                mock.patch.object(janitor.urllib.request, "build_opener", return_value=self.opener(login_body)):
+            return janitor.qbittorrent_torrents()
+
+    def test_an_empty_204_login_is_success(self) -> None:
+        self.assertEqual(self.call(b""), [])
+
+    def test_the_old_ok_reply_is_success(self) -> None:
+        self.assertEqual(self.call(b"Ok."), [])
+
+    def test_fails_is_a_refusal(self) -> None:
+        with self.assertRaises(RuntimeError):
+            self.call(b"Fails.")
+
+
 class ConnectionTests(unittest.TestCase):
     SCHEMA = {
         "implementation": "MediaBrowser",

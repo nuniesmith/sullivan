@@ -403,8 +403,12 @@ def qbittorrent_torrents() -> list[dict[str, Any]] | None:
         headers={"Referer": base},
     )
     with opener.open(login, timeout=30) as resp:
-        if resp.read().strip() != b"Ok.":
-            raise RuntimeError("qBittorrent refused the login")
+        body = resp.read().strip()
+    # qBittorrent 4 answers a good login with 200 "Ok."; 5.x answers 204 and
+    # no body. A bad one is 200 "Fails." (4) or a 401 (5, raised above). The
+    # first live run took 5.x's 204 for a refusal (2026-10-17).
+    if body and body != b"Ok.":
+        raise RuntimeError("qBittorrent refused the login")
     with opener.open(base.rstrip("/") + "/api/v2/torrents/info", timeout=60) as resp:
         torrents = json.loads(resp.read())
     return torrents if isinstance(torrents, list) else []
