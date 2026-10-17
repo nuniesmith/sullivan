@@ -516,6 +516,9 @@ def configure_seed_goals(report: Report, torrents: list[dict[str, Any]] | None) 
     ratio = float(ratio_text) if ratio_text else None
     minutes = int(float(days_text) * 1440) if days_text else None
     if not (base and key):
+        # Said out loud: the first live run skipped this step in silence,
+        # because the deploy never wrote the key into .env.
+        report.add("Seed goals: skipped, PROWLARR_API_KEY is empty.")
         return
     prowlarr = Arr("Prowlarr", base, key, "v1")
     try:
