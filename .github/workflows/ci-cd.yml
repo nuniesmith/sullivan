@@ -295,6 +295,43 @@ jobs:
                         echo "  ✓ Prowlarr API key configured"
                       fi
 
+                      # media-janitor (services/media-janitor). Added or replaced
+                      # whole-line, unlike the sed above, which only rewrites
+                      # keys .env already has. Each value arrives through a
+                      # QUOTED heredoc, so a password holding $, ` or " reaches
+                      # .env exactly as stored. Empty values are skipped, so an
+                      # unset secret never blanks a working one.
+                      upsert_env() {
+                        local key="$1" value
+                        value="$(cat)"
+                        [ -n "$value" ] || return 0
+                        { grep -v "^${key}=" .env 2>/dev/null || true; printf '%s=%s\n' "$key" "$value"; } > .env.janitor.tmp
+                        cat .env.janitor.tmp > .env
+                        rm -f .env.janitor.tmp
+                        echo "  ✓ ${key} configured"
+                      }
+                      upsert_env EMBY_API_KEY <<'__SECRET__'
+                      ${{ secrets.EMBY_API_KEY }}
+                      __SECRET__
+                      upsert_env DISCORD_MEDIA_WEBHOOK_URL <<'__SECRET__'
+                      ${{ secrets.DISCORD_MEDIA_WEBHOOK_URL }}
+                      __SECRET__
+                      upsert_env QBITTORRENT_USERNAME <<'__SECRET__'
+                      ${{ secrets.QBITTORRENT_USERNAME }}
+                      __SECRET__
+                      upsert_env QBITTORRENT_PASSWORD <<'__SECRET__'
+                      ${{ secrets.QBITTORRENT_PASSWORD }}
+                      __SECRET__
+                      upsert_env MEDIA_JANITOR_EXECUTE <<'__SECRET__'
+                      ${{ vars.MEDIA_JANITOR_EXECUTE }}
+                      __SECRET__
+                      upsert_env MEDIA_SEED_RATIO <<'__SECRET__'
+                      ${{ vars.MEDIA_SEED_RATIO }}
+                      __SECRET__
+                      upsert_env MEDIA_SEED_DAYS <<'__SECRET__'
+                      ${{ vars.MEDIA_SEED_DAYS }}
+                      __SECRET__
+
                   deploy-command: |
                       # Without -e a failed `up` fell through to "Deployment
                       # complete" -- how freddy reported success while EMPTY.
