@@ -205,6 +205,12 @@ class SeedGoalTests(unittest.TestCase):
         {"name": "torrentBaseSettings.seedTime", "value": None},
     ]}
 
+    def test_a_missing_prowlarr_key_is_reported_not_skipped_silently(self) -> None:
+        report = janitor.Report(execute=False)
+        with mock.patch.dict(os.environ, {"PROWLARR_URL": "http://prowlarr:9696"}, clear=True):
+            janitor.configure_seed_goals(report, None)
+        self.assertEqual(report.lines, ["Seed goals: skipped, PROWLARR_API_KEY is empty."])
+
     def test_no_goal_configured_changes_nothing(self) -> None:
         self.assertIsNone(janitor.seed_goal_changes(self.INDEXER, None, None))
 

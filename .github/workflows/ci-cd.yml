@@ -322,6 +322,12 @@ jobs:
                       upsert_env QBITTORRENT_PASSWORD <<'__SECRET__'
                       ${{ secrets.QBITTORRENT_PASSWORD }}
                       __SECRET__
+                      # The sed above only rewrites a PROWLARR_API_KEY line that
+                      # already exists, and Sullivan's .env never had one, so
+                      # the janitor's seed-goal step saw an empty key.
+                      upsert_env PROWLARR_API_KEY <<'__SECRET__'
+                      ${{ secrets.PROWLARR_API_KEY }}
+                      __SECRET__
                       upsert_env MEDIA_JANITOR_EXECUTE <<'__SECRET__'
                       ${{ vars.MEDIA_JANITOR_EXECUTE }}
                       __SECRET__
