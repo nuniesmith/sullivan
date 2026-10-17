@@ -219,9 +219,8 @@ services:
       - ${DOWNLOAD_PATH_TORRENT:-/media/qbittorrent/torrent}:/torrent
       - ${DOWNLOAD_PATH_MONITOR:-/media/qbittorrent/monitor}:/monitor
       # Shelfmark's download category. Mounted at /shelfmark rather than under
-      # /complete because unpackerr's catch-all watcher is UN_FOLDER_0_PATH=/complete
-      # — a category under there would be extracted by unpackerr and by Shelfmark
-      # at the same time.
+      # /complete because unpackerr used to watch all of /complete (removed
+      # 2026-10-17) and would have extracted it alongside Shelfmark.
       #
       # The container path matters. /media is bound to /mnt/media, so a save path
       # of "/media/qbittorrent/shelfmark" resolves to /mnt/media/qbittorrent/shelfmark
@@ -445,6 +444,53 @@ services:
           memory: 512M
 
   # unpackerr
+  # Daily: clears Unpackerr's leftover copies, orphaned downloads and the old
+  # download area on the HDD pool, reports both disks, and wires Radarr/
+  # Sonarr/Lidarr to Emby (library refresh) and Discord. Report-only until
+  # MEDIA_JANITOR_EXECUTE=true. See services/media-janitor/janitor.py.
+  media-janitor:
+    image: python:3.13-alpine
+    container_name: media-janitor
+    command: ["python", "/app/janitor.py", "--loop"]
+    user: ${PUID:-1001}:${PGID:-1001}
+    volumes:
+      - ./services/media-janitor/janitor.py:/app/janitor.py:ro
+      # The same host folder qBittorrent mounts at /complete (NVMe).
+      - ${DOWNLOAD_PATH_COMPLETE:-/media/qbittorrent/complete}:/complete
+      # The old download area on the HDD pool. qBittorrent's container sees it
+      # as /media/qbittorrent, which is how torrents there are recognised.
+      - ${MEDIA_PATH:-/mnt/media}/qbittorrent:/legacy
+    environment:
+      TZ: ${TZ:-America/Toronto}
+      PYTHONUNBUFFERED: "1"
+      MEDIA_JANITOR_EXECUTE: ${MEDIA_JANITOR_EXECUTE:-false}
+      MEDIA_SEED_RATIO: ${MEDIA_SEED_RATIO:-}
+      MEDIA_SEED_DAYS: ${MEDIA_SEED_DAYS:-}
+      DISCORD_MEDIA_WEBHOOK_URL: ${DISCORD_MEDIA_WEBHOOK_URL:-}
+      EMBY_API_KEY: ${EMBY_API_KEY:-}
+      EMBY_HOST_FOR_ARRS: ${EMBY_HOST_FOR_ARRS:-100.87.125.19}
+      QBITTORRENT_URL: http://qbittorrent:8080
+      QBITTORRENT_USERNAME: ${QBITTORRENT_USERNAME:-}
+      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:-}
+      RADARR_URL: http://radarr:7878
+      RADARR_API_KEY: ${RADARR_API_KEY:-}
+      SONARR_URL: http://sonarr:8989
+      SONARR_API_KEY: ${SONARR_API_KEY:-}
+      LIDARR_URL: http://lidarr:8686
+      LIDARR_API_KEY: ${LIDARR_API_KEY:-}
+      PROWLARR_URL: http://prowlarr:9696
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - download
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
   unpackerr:
     image: golift/unpackerr
     container_name: unpackerr
@@ -484,11 +530,12 @@ services:
       UN_LIDARR_0_TIMEOUT: 10s
       UN_LIDARR_0_DELETE_ORIG: "false"
       UN_LIDARR_0_DELETE_DELAY: 5m
-      UN_FOLDER_0_PATH: /complete
-      UN_FOLDER_0_DELETE_AFTER: 10m
-      UN_FOLDER_0_DELETE_ORIGINAL: "false"
-      UN_FOLDER_0_DELETE_FILES: "false"
-      UN_FOLDER_0_MOVE_BACK: "false"
+      # No folder watcher. UN_FOLDER_0_PATH=/complete extracted every category
+      # folder AGAIN into a `<category>_unpackerred` copy that nothing read or
+      # deleted (DELETE_FILES false): 612 GB of the NVMe on 2026-10-17. The
+      # Sonarr/Radarr/Lidarr entries above already extract each release in
+      # place and delete the extraction after import. media-janitor clears the
+      # copies that are left.
     security_opt:
       - no-new-privileges:true
     restart: always
