@@ -268,7 +268,10 @@ X11Forwarding no
 LogLevel VERBOSE
 ClientAliveInterval 300
 ClientAliveCountMax 2
-AllowUsers actions jordan claude
+# shelfmark-sync is freddy's book-copy account: key only, forced `rrsync -ro`
+# on /media/qbittorrent/shelfmark. Left off this list on 2026-09-22, it was
+# refused for 25 days and every audiobook stopped on Sullivan. Tailnet only.
+AllowUsers actions jordan claude shelfmark-sync@100.64.0.0/10
 
 # Password auth stays available ON THE TAILNET ONLY. jordans-iphone
 # authenticates by password and has no key; closing it globally locks the
