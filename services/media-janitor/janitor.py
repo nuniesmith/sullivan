@@ -10,7 +10,7 @@ until then every run is a report of what it WOULD delete.
    /complete as a plain folder and extracted each category folder into a
    `<category>_unpackerred` copy that nothing read or deleted: 612 GB of
    Sullivan's 1.8 TB system disk, 560 GB of it in the *arr categories
-   (`seed_unpackerred` is reported, never deleted). Radarr, Sonarr and Lidarr import from
+   (`seed_unpackerred` is step 6's). Radarr, Sonarr and Lidarr import from
    Unpackerr's OTHER, in-place extraction, which it deletes after import. An
    entry in an *arr category's `_unpackerred` folder untouched for
    MEDIA_JANITOR_DUPLICATE_DAYS (default 2) is deleted.
@@ -36,8 +36,20 @@ until then every run is a report of what it WOULD delete.
    qBittorrent stops a torrent at its goal, and the *arrs' "remove completed"
    setting then deletes it and its files. With qBittorrent credentials,
    finished *arr torrents already in the client get the same limits.
-
-The `seed` category is never touched: its torrents are force-seeded on purpose.
+6. Retiring the `seed` category. Until 2026-10-17 finished downloads were
+   moved by hand to the force-seeded `seed` category (saved to /seed on the
+   HDD pool) to keep seeding for IPTorrents' hit-and-run rule (1:1 or 336
+   hours, per torrent) without filling the NVMe. The seed goal of step 5 now
+   does that unattended, so a `seed` torrent is removed with its files once
+   it has met the goal (ratio MEDIA_SEED_RATIO, or MEDIA_SEED_DAYS of
+   seeding: keep both above IPTorrents' rule) AND an *arr's history shows
+   that very download imported, so the library holds its own copy. At least
+   MEDIA_SEED_KEEP_MIN torrents (default 15, where IPTorrents stops paying
+   bonus points for more) stay seeding, the quietest going first. The
+   `seed` and `seed_unpackerred` folders of both download areas, which no
+   torrent has used since the category moved to /seed, are cleared like
+   orphans. Both need MEDIA_JANITOR_SEED_CLEANUP=true on top of
+   MEDIA_JANITOR_EXECUTE; until then they are reported.
 """
 
 from __future__ import annotations
@@ -76,6 +88,20 @@ EMBY_TRIGGERS = (
     "onAlbumDelete", "onTrackRetag",
 )
 CONNECTION_NAME = {"Discord": "Discord (media-janitor)", "MediaBrowser": "Emby (media-janitor)"}
+# Discord sits behind Cloudflare, which answers Python's default agent with a
+# 403 (error 1010): the first live report never arrived (2026-10-17).
+USER_AGENT = "media-janitor (https://github.com/nuniesmith/sullivan)"
+TRUE = {"1", "true", "yes", "on"}
+# qBittorrent states in which a torrent counts as seeding to the tracker.
+SEEDING_STATES = frozenset({"uploading", "stalledUP", "forcedUP", "queuedUP", "checkingUP"})
+# History events meaning an *arr copied a download into the library: Sonarr
+# and Radarr write downloadFolderImported, Lidarr downloadImported and
+# trackFileImported.
+IMPORT_EVENTS = frozenset({"downloadFolderImported", "downloadImported", "trackFileImported"})
+
+
+def flag(name: str) -> bool:
+    return env(name).lower() in TRUE
 
 
 def env(name: str, default: str = "") -> str:
@@ -241,6 +267,32 @@ def orphans(complete: Path, owned: set[Path], now: float, min_days: float) -> li
     return out
 
 
+def old_seed_folders(complete: Path, legacy: Path, owned: list[Path], now: float,
+                     min_days: float) -> list[Candidate]:
+    """Entries in the `seed` and `seed_unpackerred` folders of both download
+    areas that no torrent owns, untouched for `min_days`.
+
+    The `seed` category saves to /seed, so nothing seeds from these: they are
+    what the category and Unpackerr's old folder watch left behind (208 GB on
+    2026-10-17). An entry holding a hardlinked file is kept, as in the old
+    download area: deleting it would free nothing.
+    """
+    out = []
+    for root in (complete, legacy / "complete"):
+        for name in ("seed", "seed_unpackerred"):
+            folder = root / name
+            if folder.is_symlink() or not folder.is_dir():
+                continue
+            for entry in sorted(folder.iterdir()):
+                if entry.is_symlink() or owned_by(entry, owned):
+                    continue
+                size, newest, linked = walk_stats_linked(entry)
+                age = (now - newest) / DAY
+                if not linked and age >= min_days:
+                    out.append(Candidate(entry, size, age, f"old seed folder ({folder})"))
+    return out
+
+
 def delete(candidate: Candidate, now: float, min_days: float) -> bool:
     """Delete one candidate, re-checking it first. True if it was removed."""
     path = candidate.path
@@ -262,7 +314,7 @@ def delete(candidate: Candidate, now: float, min_days: float) -> bool:
 def http(method: str, url: str, *, headers: dict[str, str] | None = None,
          body: Any = None, form: dict[str, str] | None = None, timeout: float = 30) -> Any:
     data = None
-    hdrs = {"Accept": "application/json", **(headers or {})}
+    hdrs = {"Accept": "application/json", "User-Agent": USER_AGENT, **(headers or {})}
     if body is not None:
         data = json.dumps(body).encode()
         hdrs["Content-Type"] = "application/json"
@@ -320,7 +372,13 @@ def ensure_connection(arr: Arr, implementation: str, fields: dict[str, Any],
     existing = [n for n in arr.call("GET", "/notification") or [] if n.get("name") == name]
     if existing:
         resource = build_connection(existing[0], name, fields, triggers)
-        if resource == existing[0]:
+        # The *arrs answer every secret (Emby's API key) as "********", so a
+        # plain comparison rewrote each Emby connection on every run, report
+        # mode included. Compare the rest; a rotated Emby key means deleting
+        # that connection once, and the next run recreates it.
+        masked = {f.get("name") for f in existing[0].get("fields", []) if f.get("value") == "********"}
+        visible = {k: v for k, v in fields.items() if k not in masked}
+        if build_connection(existing[0], name, visible, triggers) == existing[0]:
             return "unchanged"
         arr.call("PUT", f"/notification/{existing[0]['id']}", resource)
         return "updated"
@@ -392,14 +450,14 @@ def clean(report: Report, label: str, candidates: list[Candidate], now: float, m
     report.add(f"{label}: deleted {removed} of {len(candidates)} entries, {human(freed)} freed.")
 
 
-def qbittorrent_torrents() -> list[dict[str, Any]] | None:
-    base, user, password = env("QBITTORRENT_URL"), env("QBITTORRENT_USERNAME"), env("QBITTORRENT_PASSWORD")
-    if not (base and user and password):
-        return None
+def qbittorrent_session() -> tuple[urllib.request.OpenerDirector, str]:
+    """A logged-in qBittorrent WebUI session: (opener holding the cookie, base URL)."""
+    base = env("QBITTORRENT_URL").rstrip("/")
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
     login = urllib.request.Request(
-        base.rstrip("/") + "/api/v2/auth/login",
-        data=urllib.parse.urlencode({"username": user, "password": password}).encode(),
+        base + "/api/v2/auth/login",
+        data=urllib.parse.urlencode(
+            {"username": env("QBITTORRENT_USERNAME"), "password": env("QBITTORRENT_PASSWORD")}).encode(),
         headers={"Referer": base},
     )
     with opener.open(login, timeout=30) as resp:
@@ -409,7 +467,22 @@ def qbittorrent_torrents() -> list[dict[str, Any]] | None:
     # first live run took 5.x's 204 for a refusal (2026-10-17).
     if body and body != b"Ok.":
         raise RuntimeError("qBittorrent refused the login")
-    with opener.open(base.rstrip("/") + "/api/v2/torrents/info", timeout=60) as resp:
+    return opener, base
+
+
+def qbittorrent_post(path: str, form: dict[str, str], timeout: float = 60) -> None:
+    opener, base = qbittorrent_session()
+    request = urllib.request.Request(base + path, headers={"Referer": base},
+                                     data=urllib.parse.urlencode(form).encode())
+    with opener.open(request, timeout=timeout) as resp:
+        resp.read()
+
+
+def qbittorrent_torrents() -> list[dict[str, Any]] | None:
+    if not (env("QBITTORRENT_URL") and env("QBITTORRENT_USERNAME") and env("QBITTORRENT_PASSWORD")):
+        return None
+    opener, base = qbittorrent_session()
+    with opener.open(base + "/api/v2/torrents/info", timeout=60) as resp:
         torrents = json.loads(resp.read())
     return torrents if isinstance(torrents, list) else []
 
@@ -437,9 +510,9 @@ def run(execute: bool, now: float | None = None) -> Report:
     legacy = Path(env("MEDIA_JANITOR_LEGACY", "/legacy"))
     legacy_days = float(env("MEDIA_JANITOR_LEGACY_DAYS", "90"))
     if torrents is None:
-        report.add("Orphans and the old download area: skipped, no qBittorrent login configured.")
+        report.add("Orphans, old seed folders and the old download area: skipped, no qBittorrent login configured.")
     elif not torrents:
-        report.add("Orphans and the old download area: skipped, qBittorrent listed no torrents.")
+        report.add("Orphans, old seed folders and the old download area: skipped, qBittorrent listed no torrents.")
     else:
         owned = torrent_roots(torrents, complete)
         clean(report, "Orphans", orphans(complete, owned, now, orphan_days), now, orphan_days)
@@ -450,17 +523,17 @@ def run(execute: bool, now: float | None = None) -> Report:
                   legacy_candidates(legacy, old_owned, now, legacy_days, kept), now, legacy_days)
             if kept:
                 report.add(f"Old download area: kept {len(kept)} entries that share files with the library.")
-
-    for root, label in ((complete, "complete"), (legacy / "complete", "/mnt/media/qbittorrent/complete")):
-        for name in ("seed", "seed_unpackerred"):
-            folder = root / name
-            if folder.is_dir() and not folder.is_symlink():
-                size, _ = walk_stats(folder)
-                if size:
-                    report.add(f"Left alone: {human(size)} in {label}/{name} (the seed category is yours to manage).")
+        leftovers = old_seed_folders(complete, legacy, seeding, now, orphan_days)
+        if flag("MEDIA_JANITOR_SEED_CLEANUP"):
+            clean(report, "Old seed folders", leftovers, now, orphan_days)
+        elif leftovers:
+            report.add(f"Old seed folders: {len(leftovers)} entries, {human(sum(c.size for c in leftovers))}, "
+                       "that no torrent owns; deleted once MEDIA_JANITOR_SEED_CLEANUP=true.")
 
     configure_connections(report)
     configure_seed_goals(report, torrents)
+    if torrents:
+        retire_seed_category(report, torrents)
     # Downloads land on the NVMe system disk (fast, small), and the *arrs copy
     # finished media to the HDD pool Emby reads. Both filling up stops things:
     # a full NVMe stalls every download, a full pool stops every import.
@@ -561,15 +634,114 @@ def configure_seed_goals(report: Report, torrents: list[dict[str, Any]] | None) 
 
 
 def set_share_limits(hashes: list[str], ratio: float, minutes: int) -> None:
-    base = env("QBITTORRENT_URL").rstrip("/")
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
-    login = urllib.request.Request(base + "/api/v2/auth/login", headers={"Referer": base}, data=urllib.parse.urlencode(
-        {"username": env("QBITTORRENT_USERNAME"), "password": env("QBITTORRENT_PASSWORD")}).encode())
-    opener.open(login, timeout=30).read()
-    form = {"hashes": "|".join(hashes), "ratioLimit": str(ratio), "seedingTimeLimit": str(minutes),
-            "inactiveSeedingTimeLimit": "-2"}
-    opener.open(urllib.request.Request(base + "/api/v2/torrents/setShareLimits", headers={"Referer": base},
-                                       data=urllib.parse.urlencode(form).encode()), timeout=60).read()
+    # qBittorrent 5.2 refuses the call without shareLimitAction (400, "Missing
+    # required parameters"), which is how the first live run left all 17
+    # finished torrents without the goal. "Default" is the global action:
+    # Stop, which is what lets the *arrs remove a finished torrent.
+    qbittorrent_post("/api/v2/torrents/setShareLimits", {
+        "hashes": "|".join(hashes), "ratioLimit": str(ratio), "seedingTimeLimit": str(minutes),
+        "inactiveSeedingTimeLimit": "-2", "shareLimitAction": "Default"})
+
+
+@dataclass
+class SeedPlan:
+    remove: list[dict[str, Any]] = field(default_factory=list)
+    waiting: list[dict[str, Any]] = field(default_factory=list)
+    not_imported: list[dict[str, Any]] = field(default_factory=list)
+    kept_seeding: list[dict[str, Any]] = field(default_factory=list)
+
+
+def goal_met(t: dict[str, Any], ratio: float, seconds: float) -> bool:
+    return (t.get("ratio") or 0) >= ratio or (t.get("seeding_time") or 0) >= seconds
+
+
+def plan_seed_retirement(torrents: list[dict[str, Any]], category: str, ratio: float, seconds: float,
+                         imported: set[str], keep_min: int) -> SeedPlan:
+    """Sort the finished torrents of `category` into what goes and what stays, and why."""
+    plan = SeedPlan()
+    room = sum(1 for t in torrents if t.get("state") in SEEDING_STATES) - keep_min
+    mine = [t for t in torrents if t.get("category") == category and (t.get("progress") or 0) >= 1]
+    # Quietest first: the ones IPTorrents' leechers have stopped asking for.
+    for t in sorted(mine, key=lambda t: t.get("last_activity") or 0):
+        seeding = t.get("state") in SEEDING_STATES
+        if not goal_met(t, ratio, seconds):
+            plan.waiting.append(t)
+        elif t.get("hash") not in imported:
+            plan.not_imported.append(t)
+        elif seeding and room <= 0:
+            plan.kept_seeding.append(t)
+        else:
+            if seeding:
+                room -= 1
+            plan.remove.append(t)
+    return plan
+
+
+def imported_by_an_arr(arrs: list[Arr], hashes: list[str]) -> set[str]:
+    """The hashes some *arr's history shows imported into the library.
+
+    Only a record carrying that very download id counts: an *arr that ignored
+    the filter and answered with its newest history must not read as proof.
+    Errors propagate, so unreadable history removes nothing.
+    """
+    found = set()
+    for h in hashes:
+        for arr in arrs:
+            query = urllib.parse.urlencode({"downloadId": h.upper(), "pageSize": 50})
+            page = arr.call("GET", f"/history?{query}") or {}
+            records = page.get("records", []) if isinstance(page, dict) else []
+            if any(str(r.get("downloadId", "")).upper() == h.upper() and r.get("eventType") in IMPORT_EVENTS
+                   for r in records):
+                found.add(h)
+                break
+    return found
+
+
+def retire_seed_category(report: Report, torrents: list[dict[str, Any]]) -> None:
+    category = env("MEDIA_SEED_CATEGORY", "seed")
+    mine = [t for t in torrents if t.get("category") == category]
+    if not mine:
+        return
+    size = sum(t.get("size") or 0 for t in mine)
+    ratio_text, days_text = env("MEDIA_SEED_RATIO"), env("MEDIA_SEED_DAYS")
+    if not (ratio_text and days_text):
+        report.add(f"Seed category: {len(mine)} torrents, {human(size)}, left alone: "
+                   "MEDIA_SEED_RATIO and MEDIA_SEED_DAYS are not set.")
+        return
+    ratio, seconds = float(ratio_text), float(days_text) * DAY
+    keep_min = int(env("MEDIA_SEED_KEEP_MIN", "15"))
+    done = [t["hash"] for t in mine if (t.get("progress") or 0) >= 1 and goal_met(t, ratio, seconds)]
+    try:
+        imported = imported_by_an_arr(configured_arrs(), done)
+    except (OSError, urllib.error.URLError, ValueError) as exc:
+        report.problem(f"Seed category: *arr history unreadable, nothing removed: {exc}")
+        return
+    plan = plan_seed_retirement(torrents, category, ratio, seconds, imported, keep_min)
+
+    parts = [f"Seed category: {len(mine)} torrents, {human(size)}."]
+    if plan.waiting:
+        soonest = min(max(0.0, seconds - (t.get("seeding_time") or 0)) for t in plan.waiting) / DAY
+        parts.append(f"{len(plan.waiting)} still owe seed time (the next is done within {soonest:.1f} days).")
+    if plan.not_imported:
+        parts.append(f"{len(plan.not_imported)} met the goal but no *arr imported them, so they stay.")
+    if plan.kept_seeding:
+        parts.append(f"{len(plan.kept_seeding)} kept so {keep_min} torrents stay seeding (bonus points).")
+    report.add(" ".join(parts))
+    if not plan.remove:
+        return
+    freed = sum(t.get("size") or 0 for t in plan.remove)
+    if not (report.execute and flag("MEDIA_JANITOR_SEED_CLEANUP")):
+        report.add(f"Seed category: {len(plan.remove)} torrents, {human(freed)}, met the goal and were imported; "
+                   "would be removed with their files"
+                   + ("." if flag("MEDIA_JANITOR_SEED_CLEANUP") else " once MEDIA_JANITOR_SEED_CLEANUP=true."))
+        return
+    try:
+        qbittorrent_post("/api/v2/torrents/delete",
+                         {"hashes": "|".join(t["hash"] for t in plan.remove), "deleteFiles": "true"}, timeout=300)
+    except (OSError, urllib.error.URLError, RuntimeError) as exc:
+        report.problem(f"Seed category: removal failed: {exc}")
+        return
+    report.add(f"Seed category: removed {len(plan.remove)} torrents and their files, {human(freed)} freed.")
 
 
 def post_report(report: Report) -> None:
@@ -594,7 +766,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--loop", action="store_true", help="run every MEDIA_JANITOR_INTERVAL_HOURS")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    execute = env("MEDIA_JANITOR_EXECUTE").lower() in {"1", "true", "yes", "on"}
+    execute = flag("MEDIA_JANITOR_EXECUTE")
     interval = float(env("MEDIA_JANITOR_INTERVAL_HOURS", "24")) * 3600
     if args.loop:
         # Not the moment a deploy starts everything else.
