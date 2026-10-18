@@ -331,6 +331,9 @@ jobs:
                       upsert_env MEDIA_JANITOR_EXECUTE <<'__SECRET__'
                       ${{ vars.MEDIA_JANITOR_EXECUTE }}
                       __SECRET__
+                      upsert_env MEDIA_JANITOR_SEED_CLEANUP <<'__SECRET__'
+                      ${{ vars.MEDIA_JANITOR_SEED_CLEANUP }}
+                      __SECRET__
                       upsert_env MEDIA_SEED_RATIO <<'__SECRET__'
                       ${{ vars.MEDIA_SEED_RATIO }}
                       __SECRET__

@@ -447,7 +447,8 @@ services:
   # Daily: clears Unpackerr's leftover copies, orphaned downloads and the old
   # download area on the HDD pool, reports both disks, and wires Radarr/
   # Sonarr/Lidarr to Emby (library refresh) and Discord. Report-only until
-  # MEDIA_JANITOR_EXECUTE=true. See services/media-janitor/janitor.py.
+  # MEDIA_JANITOR_EXECUTE=true; retiring the `seed` category also needs
+  # MEDIA_JANITOR_SEED_CLEANUP=true. See services/media-janitor/janitor.py.
   media-janitor:
     image: python:3.13-alpine
     container_name: media-janitor
@@ -464,6 +465,7 @@ services:
       TZ: ${TZ:-America/Toronto}
       PYTHONUNBUFFERED: "1"
       MEDIA_JANITOR_EXECUTE: ${MEDIA_JANITOR_EXECUTE:-false}
+      MEDIA_JANITOR_SEED_CLEANUP: ${MEDIA_JANITOR_SEED_CLEANUP:-false}
       MEDIA_SEED_RATIO: ${MEDIA_SEED_RATIO:-}
       MEDIA_SEED_DAYS: ${MEDIA_SEED_DAYS:-}
       DISCORD_MEDIA_WEBHOOK_URL: ${DISCORD_MEDIA_WEBHOOK_URL:-}
@@ -489,7 +491,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          # The kernel charges a delete's filesystem bookkeeping to the
+          # container: at 128M the first big run (2.4 TB off the HDD pool)
+          # was OOM-killed twice mid-delete (2026-10-17).
+          memory: 512M
 
   unpackerr:
     image: golift/unpackerr
