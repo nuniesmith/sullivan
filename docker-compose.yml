@@ -205,7 +205,7 @@ services:
 
   # qbittorrent
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
+    image: lscr.io/linuxserver/qbittorrent:5.2.4
     container_name: qbittorrent
     environment:
       <<: *common-env
