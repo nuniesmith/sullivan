@@ -229,10 +229,16 @@ services:
       # Downloads would land somewhere that account cannot read, and the pull
       # would fail with a permission error that looks like a broken SSH key.
       - ${DOWNLOAD_PATH_SHELFMARK:-/media/qbittorrent/shelfmark}:/shelfmark
-      # Managearr's download category (successor to the shelfmark path above):
-      # book downloads save to /managearr in the container, backed by the host's
-      # /media/qbittorrent/managearr. The shelfmark-sync rrsync root moves to
-      # that directory when the category switch is flipped on freddy.
+      # managarr's download category (successor to the shelfmark path above):
+      # book downloads save to /managarr in the container, backed by the host's
+      # /media/qbittorrent/managarr, which is the shelfmark-sync rrsync root.
+      # Same trap as above: a save path of /media/qbittorrent/managarr would
+      # land on /mnt/media, outside that root.
+      - ${DOWNLOAD_PATH_MANAGARR:-/media/qbittorrent/managarr}:/managarr
+      # TEMPORARY: the pre-2026-11-24 spelling (managearr) of the same
+      # category's path. Torrents still seed from here until they are moved to
+      # /managarr; remove this mount, and the host directory, once
+      # /media/qbittorrent/managearr is empty.
       - ${DOWNLOAD_PATH_MANAGEARR:-/media/qbittorrent/managearr}:/managearr
       # MEDIA: For seeding and *arr access to final destinations
       - ${MEDIA_PATH_SEED:-/mnt/media/seed}:/seed

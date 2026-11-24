@@ -269,7 +269,7 @@ LogLevel VERBOSE
 ClientAliveInterval 300
 ClientAliveCountMax 2
 # shelfmark-sync is freddy's book-copy account: key only, forced `rrsync -ro`
-# on /media/qbittorrent/shelfmark. Left off this list on 2026-09-22, it was
+# on /media/qbittorrent/managarr (managarr's qBittorrent category path). Left off this list on 2026-09-22, it was
 # refused for 25 days and every audiobook stopped on Sullivan. Tailnet only.
 AllowUsers actions jordan claude shelfmark-sync@100.64.0.0/10
 
