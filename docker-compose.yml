@@ -70,6 +70,12 @@ volumes:
   ytdl_mongodb:
   wiki_postgres:
 
+  # Parlour (test instance)
+  parlour_db:
+  parlour_artwork:
+  parlour_cache:
+  parlour_podcasts:
+
   # Dispatcharr
   dispatcharr_data:
 
@@ -832,6 +838,74 @@ services:
         limits:
           memory: 512M
 
+
+  # ===========================================================================
+  # PARLOUR (TEST INSTANCE)
+  # ===========================================================================
+
+  # parlour - media server under evaluation alongside emby (2026-11-27).
+  # Image is published by the parlour repo's CI on main. Media mounts are
+  # READ-ONLY: parlour indexes and streams the existing library in place
+  # and must never write to it. Published on the tailnet address only,
+  # like prowlarr/qbittorrent. Secrets live in the on-box .env
+  # (PARLOUR_DB_PASSWORD, PARLOUR_ADMIN_PASSWORD, PARLOUR_STREAM_SECRET,
+  # TMDB_API_KEY) - never in git.
+  parlour:
+    image: ghcr.io/nuniesmith/parlour:main
+    container_name: parlour
+    depends_on:
+      parlour-db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-America/Toronto}
+      PARLOUR_DATABASE_URL: postgres://parlour:${PARLOUR_DB_PASSWORD}@parlour-db:5432/parlour?sslmode=disable
+      PARLOUR_PORT: 8585
+      PARLOUR_LOG_LEVEL: ${PARLOUR_LOG_LEVEL:-info}
+      PARLOUR_ADMIN_USER: ${PARLOUR_ADMIN_USER:-admin}
+      PARLOUR_ADMIN_PASSWORD: ${PARLOUR_ADMIN_PASSWORD}
+      PARLOUR_STREAM_SECRET: ${PARLOUR_STREAM_SECRET}
+      PARLOUR_COOKIE_SECURE: "false"
+      PARLOUR_TMDB_API_KEY: ${TMDB_API_KEY:-}
+      PARLOUR_ARTWORK_DIR: /artwork
+      PARLOUR_CACHE_DIR: /cache
+      PARLOUR_SERVER_NAME: ${PARLOUR_SERVER_NAME:-Parlour (sullivan test)}
+    ports:
+      - "100.87.125.19:8585:8585"
+    volumes:
+      # MEDIA: the existing library, read-only (see note above)
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/media/movies:ro
+      - ${MEDIA_PATH_SHOWS:-/mnt/media/shows}:/media/shows:ro
+      - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/media/music:ro
+      - ${MEDIA_PATH_MUSIC_VIDEOS:-/mnt/media/music_videos}:/media/music_videos:ro
+      - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/media/edu:ro
+      # DATA: parlour's own state (artwork, cache, podcast downloads)
+      - parlour_artwork:/artwork
+      - parlour_cache:/cache
+      - parlour_podcasts:/podcasts
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - media
+
+  # parlour-db - parlour's Postgres (mirrors the wiki-postgres pattern)
+  parlour-db:
+    image: postgres:17
+    container_name: parlour-db
+    environment:
+      POSTGRES_DB: parlour
+      POSTGRES_USER: parlour
+      POSTGRES_PASSWORD: ${PARLOUR_DB_PASSWORD}
+      TZ: ${TZ:-America/Toronto}
+    volumes:
+      # DATA: Database files
+      - parlour_db:/var/lib/postgresql/data
+    logging: *default-logging
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parlour"]
+      <<: *healthcheck-defaults
+    networks:
+      - media
   dispatcharr:
     # build:
     #   context: .
