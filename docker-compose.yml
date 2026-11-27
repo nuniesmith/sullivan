@@ -878,6 +878,8 @@ services:
       - ${MEDIA_PATH_MUSIC:-/mnt/media/music}:/media/music:ro
       - ${MEDIA_PATH_MUSIC_VIDEOS:-/mnt/media/music_videos}:/media/music_videos:ro
       - ${MEDIA_PATH_EDU:-/mnt/media/edu}:/media/edu:ro
+      - ${MEDIA_PATH_AUDIOBOOKS:-/mnt/media/books/audiobooks}:/media/audiobooks:ro
+      - ${MEDIA_PATH_EBOOKS:-/mnt/media/ebooks}:/media/ebooks:ro
       # DATA: parlour's own state (artwork, cache, podcast downloads)
       - parlour_artwork:/artwork
       - parlour_cache:/cache
